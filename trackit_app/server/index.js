@@ -1,8 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+// .env lives at trackit_app/.env (one level up from server/) -- see db.js.
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
-const path = require('path');
 const pool = require('./db');
 
 const authRoutes = require('./routes/auth');
