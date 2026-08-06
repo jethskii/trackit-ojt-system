@@ -5,6 +5,7 @@ import '../../models/student.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/coming_soon_view.dart';
+import 'documents/documents_tab_navigator.dart';
 import 'student_attendance_view.dart';
 import 'student_home_view.dart';
 
@@ -52,10 +53,7 @@ class _StudentShellState extends State<StudentShell> {
         initialAttendance: widget.todayAttendance,
         history: widget.attendanceHistory,
       ),
-      const ComingSoonView(
-        title: 'Document',
-        subtitle: 'Requirements & Weekly Reports',
-      ),
+      DocumentsTabNavigator(student: widget.student),
       const ComingSoonView(
         title: 'Notification',
         subtitle: 'Announcements & Alerts',
