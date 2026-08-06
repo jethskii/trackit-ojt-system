@@ -1,0 +1,54 @@
+import 'package:flutter/material.dart';
+import '../../utils/app_colors.dart';
+
+class AnnouncementsSection extends StatelessWidget {
+  final List<String> announcements;
+
+  const AnnouncementsSection({super.key, this.announcements = const []});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Text('🎉', style: TextStyle(fontSize: 16)),
+            SizedBox(width: 6),
+            Text(
+              'Latest Announcement / Notifications',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (announcements.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No announcements yet.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          )
+        else
+          for (final announcement in announcements)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.cardWhite,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(announcement),
+            ),
+      ],
+    );
+  }
+}
