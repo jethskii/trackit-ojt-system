@@ -19,7 +19,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TRACKIT',
-      theme: ThemeData(fontFamily: 'Roboto'),
+      theme: ThemeData(useMaterial3: true),
       home: StudentShell(
         student: const Student(
           name: 'Way-Ar Sangngern',

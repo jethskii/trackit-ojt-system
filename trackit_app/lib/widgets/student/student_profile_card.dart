@@ -24,51 +24,65 @@ class StudentProfileCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: AppColors.background,
-            backgroundImage: student.avatarUrl != null
-                ? NetworkImage(student.avatarUrl!)
-                : null,
-            child: student.avatarUrl == null
-                ? Text(
-                    _initials(student.name),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryMaroon,
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: AppColors.background,
+                backgroundImage: student.avatarUrl != null
+                    ? NetworkImage(student.avatarUrl!)
+                    : null,
+                child: student.avatarUrl == null
+                    ? Text(
+                        _initials(student.name),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryMaroon,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      student.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  )
-                : null,
+                    const SizedBox(height: 2),
+                    Text(
+                      student.courseAndSection,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accentOrange,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            student.name,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            student.courseAndSection,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.accentOrange,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               student.companyName,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

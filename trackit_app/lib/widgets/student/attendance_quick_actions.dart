@@ -30,7 +30,7 @@ class AttendanceQuickActions extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Text('⚡', style: TextStyle(fontSize: 15)),
+            Icon(Icons.bolt, size: 18, color: AppColors.primaryMaroon),
             SizedBox(width: 6),
             Text(
               'Quick Actions',

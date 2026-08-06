@@ -13,7 +13,7 @@ class AnnouncementsSection extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Text('🎉', style: TextStyle(fontSize: 16)),
+            Icon(Icons.campaign, size: 18, color: AppColors.primaryMaroon),
             SizedBox(width: 6),
             Text(
               'Latest Announcement / Notifications',
