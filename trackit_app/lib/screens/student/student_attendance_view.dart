@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../models/ojt_progress.dart';
+import '../../utils/app_colors.dart';
 import '../../widgets/common/app_header.dart';
 import '../../widgets/student/attendance_history_section.dart';
 import '../../widgets/student/attendance_quick_actions.dart';
@@ -47,15 +49,29 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
   }
 
   void _handleClockAction() {
+    final now = DateTime.now();
+    final timeLabel = DateFormat('hh:mm a').format(now);
+    String? confirmation;
+
     setState(() {
-      final now = DateTime.now();
       if (!_attendance.hasClockedIn) {
         _attendance = _attendance.copyWith(clockIn: now);
+        confirmation = 'Clocked in at $timeLabel';
       } else if (!_attendance.hasClockedOut) {
         _attendance = _attendance.copyWith(clockOut: now);
+        confirmation = 'Clocked out at $timeLabel';
       }
       _now = now;
     });
+
+    if (confirmation != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(confirmation!),
+          backgroundColor: AppColors.successGreenText,
+        ),
+      );
+    }
   }
 
   void _handleCorrectionRequest() {

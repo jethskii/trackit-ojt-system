@@ -11,9 +11,11 @@ class StudentProfile {
   final String email;
   final String mobileNumber;
   final String? avatarUrl;
-  final StaffContact adviser;
-  final HteCompany company;
-  final StaffContact supervisor;
+
+  /// Null until the department assigns an adviser/company/supervisor.
+  final StaffContact? adviser;
+  final HteCompany? company;
+  final StaffContact? supervisor;
 
   const StudentProfile({
     required this.fullName,
@@ -25,9 +27,9 @@ class StudentProfile {
     required this.email,
     required this.mobileNumber,
     this.avatarUrl,
-    required this.adviser,
-    required this.company,
-    required this.supervisor,
+    this.adviser,
+    this.company,
+    this.supervisor,
   });
 
   StudentProfile copyWith({String? avatarUrl}) {

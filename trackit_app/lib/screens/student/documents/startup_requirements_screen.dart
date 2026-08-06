@@ -4,6 +4,7 @@ import '../../../services/ojt_requirements_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
 import '../../../widgets/common/info_reminder_card.dart';
+import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/phase_card.dart';
 import 'phase_requirements_screen.dart';
 
@@ -61,65 +62,75 @@ class _StartupRequirementsScreenState
       _phases.isNotEmpty &&
       _phases.every((p) => p.status == PhaseStatus.completed);
 
+  Future<void> _refresh() => _load();
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       bottom: false,
-      child: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryMaroon),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const BackNavHeader(subtitle: 'Startup Requirements'),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _OverallProgressCard(progress: _progress),
-                        const SizedBox(height: 16),
-                        const InfoReminderCard(
-                          message:
-                              'Complete each phase in order. Some phases will '
-                              'unlock automatically once requirements are met.',
+      child: Column(
+        children: [
+          const BackNavHeader(subtitle: 'Startup Requirements'),
+          Expanded(
+            child: _loading
+                ? const SkeletonList()
+                : RefreshIndicator(
+                    color: AppColors.primaryMaroon,
+                    onRefresh: _refresh,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _OverallProgressCard(progress: _progress),
+                            const SizedBox(height: 16),
+                            const InfoReminderCard(
+                              message:
+                                  'Complete each phase in order. Some phases '
+                                  'will unlock automatically once '
+                                  'requirements are met.',
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Requirements',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            for (final phase in _phases) ...[
+                              PhaseCard(
+                                phase: phase,
+                                onTap: () => _openPhase(phase),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Details Confirmation',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _allCompleted
+                                ? const _FinalizationCard()
+                                : const _PendingConfirmationCard(),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Requirements',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        for (final phase in _phases) ...[
-                          PhaseCard(phase: phase, onTap: () => _openPhase(phase)),
-                          const SizedBox(height: 12),
-                        ],
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Details Confirmation',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _allCompleted
-                            ? const _FinalizationCard()
-                            : const _PendingConfirmationCard(),
-                      ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
+          ),
+        ],
+      ),
     );
   }
 }

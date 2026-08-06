@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../utils/app_colors.dart';
+import '../common/empty_state_view.dart';
 
 class AttendanceHistorySection extends StatelessWidget {
   final List<AttendanceHistoryEntry> history;
@@ -36,39 +37,38 @@ class AttendanceHistorySection extends StatelessWidget {
                 ),
               ),
             ),
-            InkWell(
-              onTap: onViewAll,
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View All',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+            if (history.isNotEmpty)
+              InkWell(
+                onTap: onViewAll,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryMaroon,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
                       color: AppColors.primaryMaroon,
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: AppColors.primaryMaroon,
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 12),
         if (history.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Text(
-                'No attendance records yet.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
+          const EmptyStateView(
+            icon: Icons.event_busy_outlined,
+            title: 'No attendance records yet',
+            message:
+                'Your clock-in and clock-out history will appear here once '
+                'you start logging attendance.',
           )
         else
           for (final entry in history) _HistoryRow(entry: entry),

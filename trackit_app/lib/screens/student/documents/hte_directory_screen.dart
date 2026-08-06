@@ -3,7 +3,9 @@ import '../../../models/hte_company.dart';
 import '../../../services/hte_directory_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
+import '../../../widgets/common/empty_state_view.dart';
 import '../../../widgets/common/filter_chip_pill.dart';
+import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/hte_company_card.dart';
 
 class HteDirectoryScreen extends StatefulWidget {
@@ -52,6 +54,8 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
   List<String> get _industries =>
       _companies.map((c) => c.industry).toSet().toList();
 
+  Future<void> _refresh() => _load();
+
   void _showCompanyDetail(HteCompany company) {
     showModalBottomSheet(
       context: context,
@@ -71,11 +75,7 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
           const BackNavHeader(subtitle: 'HTE Directory'),
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primaryMaroon,
-                    ),
-                  )
+                ? const SkeletonList()
                 : Column(
                     children: [
                       Padding(
@@ -120,43 +120,59 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
                       ),
                       const SizedBox(height: 8),
                       Expanded(
-                        child: _filtered.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No companies found.',
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
+                        child: RefreshIndicator(
+                          color: AppColors.primaryMaroon,
+                          onRefresh: _refresh,
+                          child: _filtered.isEmpty
+                              ? ListView(
+                                  children: [
+                                    EmptyStateView(
+                                      icon: Icons.business_outlined,
+                                      title: _companies.isEmpty
+                                          ? 'No partner companies yet'
+                                          : 'No companies found',
+                                      message: _companies.isEmpty
+                                          ? 'The HTE Directory will list '
+                                              "partner companies once the "
+                                              "department adds them."
+                                          : 'Try a different search term or '
+                                              'industry filter.',
+                                    ),
+                                  ],
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    24,
                                   ),
+                                  itemCount: _filtered.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final company = _filtered[index];
+                                    return HteCompanyCard(
+                                      company: company,
+                                      isFavorite: _favorites.contains(
+                                        company.id,
+                                      ),
+                                      onTap: () => _showCompanyDetail(company),
+                                      onToggleFavorite: () {
+                                        setState(() {
+                                          if (_favorites.contains(
+                                            company.id,
+                                          )) {
+                                            _favorites.remove(company.id);
+                                          } else {
+                                            _favorites.add(company.id);
+                                          }
+                                        });
+                                      },
+                                    );
+                                  },
                                 ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  24,
-                                ),
-                                itemCount: _filtered.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (context, index) {
-                                  final company = _filtered[index];
-                                  return HteCompanyCard(
-                                    company: company,
-                                    isFavorite: _favorites.contains(company.id),
-                                    onTap: () => _showCompanyDetail(company),
-                                    onToggleFavorite: () {
-                                      setState(() {
-                                        if (_favorites.contains(company.id)) {
-                                          _favorites.remove(company.id);
-                                        } else {
-                                          _favorites.add(company.id);
-                                        }
-                                      });
-                                    },
-                                  );
-                                },
-                              ),
+                        ),
                       ),
                     ],
                   ),

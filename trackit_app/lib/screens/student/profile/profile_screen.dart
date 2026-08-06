@@ -4,6 +4,7 @@ import '../../../services/student_profile_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/app_header.dart';
 import '../../../widgets/common/settings_tile.dart';
+import '../../../widgets/common/shimmer_box.dart';
 import '../../../widgets/student/profile/profile_contact_row.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -153,16 +154,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _refresh() => _load();
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       bottom: false,
       child: _loading || _profile == null
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryMaroon),
-            )
-          : SingleChildScrollView(
+          ? const _ProfileSkeleton()
+          : RefreshIndicator(
+              color: AppColors.primaryMaroon,
+              onRefresh: _refresh,
+              child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -174,24 +179,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: _ProfileCard(
                         profile: _profile!,
                         onEditAvatar: _openAvatarPicker,
-                        onTapAdviser: () => _showContactDetail(
-                          _profile!.adviser.name,
-                          _profile!.adviser.role,
-                          _profile!.adviser.email,
-                          _profile!.adviser.phone,
-                        ),
-                        onTapCompany: () => _showContactDetail(
-                          _profile!.company.name,
-                          'Assigned OJT Company',
-                          _profile!.company.email,
-                          _profile!.company.phone,
-                        ),
-                        onTapSupervisor: () => _showContactDetail(
-                          _profile!.supervisor.name,
-                          _profile!.supervisor.role,
-                          _profile!.supervisor.email,
-                          _profile!.supervisor.phone,
-                        ),
+                        onTapAdviser: _profile!.adviser == null
+                            ? null
+                            : () => _showContactDetail(
+                                _profile!.adviser!.name,
+                                _profile!.adviser!.role,
+                                _profile!.adviser!.email,
+                                _profile!.adviser!.phone,
+                              ),
+                        onTapCompany: _profile!.company == null
+                            ? null
+                            : () => _showContactDetail(
+                                _profile!.company!.name,
+                                'Assigned OJT Company',
+                                _profile!.company!.email,
+                                _profile!.company!.phone,
+                              ),
+                        onTapSupervisor: _profile!.supervisor == null
+                            ? null
+                            : () => _showContactDetail(
+                                _profile!.supervisor!.name,
+                                _profile!.supervisor!.role,
+                                _profile!.supervisor!.email,
+                                _profile!.supervisor!.phone,
+                              ),
                       ),
                     ),
                   ),
@@ -240,7 +251,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
+              ),
             ),
+    );
+  }
+}
+
+class _ProfileSkeleton extends StatelessWidget {
+  const _ProfileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AppHeader(title: 'Profile', subtitle: 'Personal Dashboard'),
+        Transform.translate(
+          offset: const Offset(0, -30),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.cardWhite,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      ShimmerBox(
+                        width: 52,
+                        height: 52,
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const ShimmerBox(height: 16),
+                            const SizedBox(height: 8),
+                            ShimmerBox(
+                              height: 12,
+                              width:
+                                  MediaQuery.sizeOf(context).width * 0.3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const ShimmerBox(height: 36),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -248,9 +318,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _ProfileCard extends StatelessWidget {
   final StudentProfile profile;
   final VoidCallback onEditAvatar;
-  final VoidCallback onTapAdviser;
-  final VoidCallback onTapCompany;
-  final VoidCallback onTapSupervisor;
+  final VoidCallback? onTapAdviser;
+  final VoidCallback? onTapCompany;
+  final VoidCallback? onTapSupervisor;
 
   const _ProfileCard({
     required this.profile,
@@ -300,22 +370,26 @@ class _ProfileCard extends StatelessWidget {
                     : null,
               ),
               Positioned(
-                right: 0,
-                bottom: 0,
-                child: InkWell(
-                  onTap: onEditAvatar,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryMaroon,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 14,
-                      color: Colors.white,
+                right: -4,
+                bottom: -4,
+                child: Semantics(
+                  label: 'Change profile picture',
+                  button: true,
+                  child: InkWell(
+                    onTap: onEditAvatar,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryMaroon,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -349,23 +423,37 @@ class _ProfileCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Divider(height: 1),
-          ProfileContactRow(
-            name: profile.adviser.name,
-            subtitle: profile.adviser.role,
-            onTap: onTapAdviser,
-          ),
+          profile.adviser == null
+              ? const MissingContactRow(
+                  message: 'No OJT adviser assigned yet.',
+                )
+              : ProfileContactRow(
+                  name: profile.adviser!.name,
+                  subtitle: profile.adviser!.role,
+                  onTap: onTapAdviser,
+                ),
           const Divider(height: 1),
-          ProfileContactRow(
-            name: profile.company.name,
-            subtitle: 'Assigned OJT Company',
-            onTap: onTapCompany,
-          ),
+          profile.company == null
+              ? const MissingContactRow(
+                  message:
+                      'You have not been assigned to a Host Training '
+                      'Establishment yet.',
+                )
+              : ProfileContactRow(
+                  name: profile.company!.name,
+                  subtitle: 'Assigned OJT Company',
+                  onTap: onTapCompany,
+                ),
           const Divider(height: 1),
-          ProfileContactRow(
-            name: profile.supervisor.name,
-            subtitle: profile.supervisor.role,
-            onTap: onTapSupervisor,
-          ),
+          profile.supervisor == null
+              ? const MissingContactRow(
+                  message: 'No HR supervisor assigned yet.',
+                )
+              : ProfileContactRow(
+                  name: profile.supervisor!.name,
+                  subtitle: profile.supervisor!.role,
+                  onTap: onTapSupervisor,
+                ),
         ],
       ),
     );

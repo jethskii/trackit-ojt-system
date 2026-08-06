@@ -118,7 +118,11 @@ class _ActivityReportFormScreenState extends State<ActivityReportFormScreen> {
     }
     if (!mounted) return;
     setState(() => _saving = false);
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(
+      status == ActivityReportStatus.draft
+          ? 'Report saved as draft.'
+          : 'Report submitted successfully.',
+    );
   }
 
   @override
@@ -221,6 +225,7 @@ class _ActivityReportFormScreenState extends State<ActivityReportFormScreen> {
                           ? null
                           : IconButton(
                               icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Remove $attachment',
                               onPressed: () => _removeAttachment(attachment),
                             ),
                     ),

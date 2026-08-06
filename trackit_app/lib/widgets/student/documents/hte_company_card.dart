@@ -62,14 +62,26 @@ class HteCompanyCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: onToggleFavorite,
-                          child: Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            size: 20,
-                            color: isFavorite
-                                ? AppColors.statRedIcon
-                                : AppColors.textSecondary,
+                        Semantics(
+                          label: isFavorite
+                              ? 'Remove ${company.name} from favorites'
+                              : 'Add ${company.name} to favorites',
+                          button: true,
+                          child: InkWell(
+                            onTap: onToggleFavorite,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Icon(
+                                isFavorite
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 20,
+                                color: isFavorite
+                                    ? AppColors.statRedIcon
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
                           ),
                         ),
                       ],

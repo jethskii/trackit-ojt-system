@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_colors.dart';
+import '../common/empty_state_view.dart';
 
 class AnnouncementsSection extends StatelessWidget {
   final List<String> announcements;
@@ -27,14 +28,12 @@ class AnnouncementsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (announcements.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No announcements yet.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
+          const EmptyStateView(
+            icon: Icons.campaign_outlined,
+            title: 'No announcements yet',
+            message:
+                'Updates from your instructor and department will show up '
+                'here.',
           )
         else
           for (final announcement in announcements)

@@ -5,6 +5,7 @@ import '../../../services/ojt_requirements_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
 import '../../../widgets/common/mock_file_picker_sheet.dart';
+import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/requirement_doc_tile.dart';
 
 class PhaseRequirementsScreen extends StatefulWidget {
@@ -102,11 +103,7 @@ class _PhaseRequirementsScreenState extends State<PhaseRequirementsScreen> {
           BackNavHeader(subtitle: _phase?.title ?? 'Requirements'),
           Expanded(
             child: _loading || _phase == null
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primaryMaroon,
-                    ),
-                  )
+                ? const SkeletonList(count: 3)
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     children: [

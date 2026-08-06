@@ -4,7 +4,9 @@ import '../../../models/student.dart';
 import '../../../services/activity_reports_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
+import '../../../widgets/common/empty_state_view.dart';
 import '../../../widgets/common/filter_chip_pill.dart';
+import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/activity_report_card.dart';
 import 'activity_report_form_screen.dart';
 
@@ -60,7 +62,7 @@ class _ActivityReportsScreenState extends State<ActivityReportsScreen> {
   }
 
   Future<void> _openForm({ActivityReport? report}) async {
-    await Navigator.of(context).push(
+    final confirmation = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (context) => ActivityReportFormScreen(
           service: widget.service,
@@ -69,8 +71,18 @@ class _ActivityReportsScreenState extends State<ActivityReportsScreen> {
         ),
       ),
     );
-    _load();
+    await _load();
+    if (confirmation != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(confirmation),
+          backgroundColor: AppColors.successGreenText,
+        ),
+      );
+    }
   }
+
+  Future<void> _refresh() => _load();
 
   String _statusLabel(ActivityReportStatus status) {
     switch (status) {
@@ -104,11 +116,7 @@ class _ActivityReportsScreenState extends State<ActivityReportsScreen> {
             const BackNavHeader(subtitle: 'Activity Reports'),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryMaroon,
-                      ),
-                    )
+                  ? const SkeletonList()
                   : Column(
                       children: [
                         Padding(
@@ -178,33 +186,52 @@ class _ActivityReportsScreenState extends State<ActivityReportsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Expanded(
-                          child: _filtered.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No activity reports yet.',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
+                          child: RefreshIndicator(
+                            color: AppColors.primaryMaroon,
+                            onRefresh: _refresh,
+                            child: _filtered.isEmpty
+                                ? ListView(
+                                    padding: const EdgeInsets.only(bottom: 80),
+                                    children: [
+                                      EmptyStateView(
+                                        icon: Icons.assignment_outlined,
+                                        title: _reports.isEmpty
+                                            ? 'No activity reports yet'
+                                            : 'No matching reports',
+                                        message: _reports.isEmpty
+                                            ? 'Tap the + button to create '
+                                                'your first weekly activity '
+                                                'report.'
+                                            : 'Try a different search term '
+                                                'or filter.',
+                                        actionLabel: _reports.isEmpty
+                                            ? 'Create Report'
+                                            : null,
+                                        onAction: _reports.isEmpty
+                                            ? () => _openForm()
+                                            : null,
+                                      ),
+                                    ],
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      80,
                                     ),
+                                    itemCount: _filtered.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 10),
+                                    itemBuilder: (context, index) {
+                                      final report = _filtered[index];
+                                      return ActivityReportCard(
+                                        report: report,
+                                        onTap: () => _openForm(report: report),
+                                      );
+                                    },
                                   ),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    8,
-                                    16,
-                                    80,
-                                  ),
-                                  itemCount: _filtered.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final report = _filtered[index];
-                                    return ActivityReportCard(
-                                      report: report,
-                                      onTap: () => _openForm(report: report),
-                                    );
-                                  },
-                                ),
+                          ),
                         ),
                       ],
                     ),

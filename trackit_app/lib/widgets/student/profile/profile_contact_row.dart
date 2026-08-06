@@ -67,3 +67,47 @@ class ProfileContactRow extends StatelessWidget {
     );
   }
 }
+
+/// Compact "not assigned yet" row matching [ProfileContactRow]'s sizing,
+/// shown in place of it when the department hasn't assigned this contact.
+class MissingContactRow extends StatelessWidget {
+  final String message;
+
+  const MissingContactRow({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: AppColors.chipGrayBg,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.person_off_outlined,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

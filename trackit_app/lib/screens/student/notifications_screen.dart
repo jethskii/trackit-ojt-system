@@ -3,7 +3,9 @@ import '../../models/notification.dart';
 import '../../services/notifications_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_header.dart';
+import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/filter_chip_pill.dart';
+import '../../widgets/common/skeleton_list_tile.dart';
 import '../../widgets/student/notifications/notification_tile.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -88,6 +90,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     widget.onNavigateTo(notification.target);
   }
 
+  Future<void> _refresh() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -102,11 +108,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primaryMaroon,
-                    ),
-                  )
+                ? const SkeletonList()
                 : ListenableBuilder(
                     listenable: widget.service,
                     builder: (context, _) {
@@ -193,6 +195,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                   child: IconButton(
                                     onPressed: _openFilterSheet,
+                                    tooltip: 'Filter notifications',
                                     icon: const Icon(
                                       Icons.tune,
                                       color: AppColors.primaryMaroon,
@@ -224,35 +227,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ),
                           ),
                           Expanded(
-                            child: filtered.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      'No notifications yet.',
-                                      style: TextStyle(
-                                        color: AppColors.textSecondary,
+                            child: RefreshIndicator(
+                              color: AppColors.primaryMaroon,
+                              onRefresh: _refresh,
+                              child: filtered.isEmpty
+                                  ? ListView(
+                                      children: [
+                                        EmptyStateView(
+                                          icon: Icons.notifications_none,
+                                          title: widget.service.notifications.isEmpty
+                                              ? 'No notifications yet'
+                                              : 'No matching notifications',
+                                          message: widget
+                                                  .service.notifications.isEmpty
+                                              ? "You're all caught up. New "
+                                                  'updates will show up here.'
+                                              : 'Try a different search term '
+                                                  'or filter.',
+                                        ),
+                                      ],
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        24,
                                       ),
+                                      itemCount: filtered.length,
+                                      itemBuilder: (context, index) {
+                                        final notification = filtered[index];
+                                        return NotificationTile(
+                                          notification: notification,
+                                          onTap: () =>
+                                              _handleTap(notification),
+                                          onDelete: () => widget.service
+                                              .deleteNotification(
+                                                notification.id,
+                                              ),
+                                        );
+                                      },
                                     ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      0,
-                                      16,
-                                      24,
-                                    ),
-                                    itemCount: filtered.length,
-                                    itemBuilder: (context, index) {
-                                      final notification = filtered[index];
-                                      return NotificationTile(
-                                        notification: notification,
-                                        onTap: () => _handleTap(notification),
-                                        onDelete: () => widget.service
-                                            .deleteNotification(
-                                              notification.id,
-                                            ),
-                                      );
-                                    },
-                                  ),
+                            ),
                           ),
                         ],
                       );
