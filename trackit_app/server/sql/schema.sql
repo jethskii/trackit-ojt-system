@@ -45,7 +45,9 @@ CREATE TABLE students (
   name            TEXT NOT NULL,
   email           TEXT NOT NULL UNIQUE,
   password_hash   TEXT NOT NULL,
+  student_number  TEXT,
   course          TEXT NOT NULL,
+  year_level      TEXT,
   section         TEXT NOT NULL,
   company_id      BIGINT REFERENCES hte_companies(id) ON DELETE SET NULL,
   avatar_url      TEXT,
@@ -119,6 +121,7 @@ CREATE INDEX idx_submissions_student ON student_requirement_submissions (student
 CREATE TABLE activity_reports (
   id              BIGSERIAL PRIMARY KEY,
   student_id      BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  company_id      BIGINT REFERENCES hte_companies(id) ON DELETE SET NULL,
   title           TEXT NOT NULL,
   report_date     DATE NOT NULL,
   hours_rendered  NUMERIC(5,2) NOT NULL DEFAULT 0,

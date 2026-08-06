@@ -26,7 +26,8 @@ const upload = multer({
 router.get('/', async (req, res) => {
   try {
     const studentResult = await pool.query(
-      `SELECT s.name, s.email, s.course, s.section, s.avatar_url, s.company_id,
+      `SELECT s.name, s.email, s.course, s.section, s.student_number, s.year_level,
+              s.avatar_url, s.company_id,
               c.name AS company_name, c.industry, c.address AS company_address,
               c.email AS company_email, c.phone AS company_phone, c.website,
               c.description AS company_description, c.available_positions, c.available_slots
@@ -61,6 +62,8 @@ router.get('/', async (req, res) => {
         email: student.email,
         course: student.course,
         section: student.section,
+        studentNumber: student.student_number,
+        yearLevel: student.year_level,
         avatarUrl: student.avatar_url,
         mobileNumber: profile ? profile.phone : null,
         adviser: profile && profile.adviser_name
@@ -71,6 +74,8 @@ router.get('/', async (req, res) => {
               phone: profile.adviser_phone,
             }
           : null,
+        // snake_case keys here match /api/hte-companies's raw row shape so
+        // HteCompany.fromJson can parse both without special-casing.
         company: student.company_id
           ? {
               id: student.company_id,
@@ -81,8 +86,8 @@ router.get('/', async (req, res) => {
               phone: student.company_phone,
               website: student.website,
               description: student.company_description,
-              availablePositions: student.available_positions,
-              availableSlots: student.available_slots,
+              available_positions: student.available_positions,
+              available_slots: student.available_slots,
             }
           : null,
         supervisor: profile && profile.supervisor_name
@@ -103,7 +108,9 @@ router.get('/', async (req, res) => {
 
 router.patch('/', async (req, res) => {
   try {
-    const { phone, alternateEmail, address, emergencyContact } = req.body;
+    const { phone, alternateEmail, address, emergencyContact, studentNumber, yearLevel } =
+      req.body;
+
     await pool.query(
       `INSERT INTO student_profiles (student_id, phone, alternate_email, address, emergency_contact)
        VALUES ($1, $2, $3, $4, $5)
@@ -112,6 +119,18 @@ router.patch('/', async (req, res) => {
          emergency_contact = $5, updated_at = now()`,
       [req.studentId, phone, alternateEmail, address, emergencyContact],
     );
+
+    if (studentNumber !== undefined || yearLevel !== undefined) {
+      await pool.query(
+        `UPDATE students
+         SET student_number = COALESCE($1, student_number),
+             year_level = COALESCE($2, year_level),
+             updated_at = now()
+         WHERE id = $3`,
+        [studentNumber, yearLevel, req.studentId],
+      );
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Update profile error:', error);

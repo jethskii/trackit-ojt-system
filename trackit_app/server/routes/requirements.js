@@ -79,13 +79,18 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Accepts either a real multipart file, or a JSON { fileName } body for now
+// -- the Flutter app doesn't have a real file_picker plugin wired up yet
+// (see MockFilePickerSheet), so this still records a real, persisted
+// submission (status + file name) even without real file bytes attached.
 router.post('/:templateId/submit', upload.single('file'), async (req, res) => {
   try {
     const templateId = Number(req.params.templateId);
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    const fileName = req.file ? req.file.originalname : req.body.fileName;
+    const fileUrl = req.file ? `/uploads/requirements/${req.file.filename}` : null;
+    if (!fileName) {
+      return res.status(400).json({ success: false, message: 'No file provided.' });
     }
-    const fileUrl = `/uploads/requirements/${req.file.filename}`;
 
     const result = await pool.query(
       `INSERT INTO student_requirement_submissions
@@ -95,7 +100,7 @@ router.post('/:templateId/submit', upload.single('file'), async (req, res) => {
        DO UPDATE SET status = 'submitted', uploaded_file_name = $3,
          uploaded_file_url = $4, submitted_at = now(), updated_at = now()
        RETURNING *`,
-      [req.studentId, templateId, req.file.originalname, fileUrl],
+      [req.studentId, templateId, fileName, fileUrl],
     );
 
     res.json({ success: true, submission: result.rows[0] });

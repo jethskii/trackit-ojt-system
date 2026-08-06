@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../models/ojt_progress.dart';
+import '../../services/api_client.dart';
+import '../../services/attendance_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_header.dart';
 import '../../widgets/student/attendance_history_section.dart';
@@ -12,15 +14,17 @@ import '../../widgets/student/ojt_progress_card.dart';
 import '../../widgets/student/today_attendance_card.dart';
 
 class StudentAttendanceView extends StatefulWidget {
-  final OjtProgress progress;
+  final AttendanceService service;
+  final OjtProgress initialProgress;
   final TodayAttendance initialAttendance;
-  final List<AttendanceHistoryEntry> history;
+  final List<AttendanceHistoryEntry> initialHistory;
 
   const StudentAttendanceView({
     super.key,
-    required this.progress,
+    required this.service,
+    required this.initialProgress,
     required this.initialAttendance,
-    this.history = const [],
+    this.initialHistory = const [],
   });
 
   @override
@@ -29,13 +33,18 @@ class StudentAttendanceView extends StatefulWidget {
 
 class _StudentAttendanceViewState extends State<StudentAttendanceView> {
   late TodayAttendance _attendance;
+  late OjtProgress _progress;
+  late List<AttendanceHistoryEntry> _history;
   late DateTime _now;
+  bool _busy = false;
   Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
     _attendance = widget.initialAttendance;
+    _progress = widget.initialProgress;
+    _history = widget.initialHistory;
     _now = DateTime.now();
     _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() => _now = DateTime.now());
@@ -48,29 +57,54 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
     super.dispose();
   }
 
-  void _handleClockAction() {
-    final now = DateTime.now();
-    final timeLabel = DateFormat('hh:mm a').format(now);
-    String? confirmation;
-
+  Future<void> _refresh() async {
+    final results = await Future.wait([
+      widget.service.getToday(),
+      widget.service.getProgress(),
+      widget.service.getHistory(),
+    ]);
+    if (!mounted) return;
     setState(() {
-      if (!_attendance.hasClockedIn) {
-        _attendance = _attendance.copyWith(clockIn: now);
-        confirmation = 'Clocked in at $timeLabel';
-      } else if (!_attendance.hasClockedOut) {
-        _attendance = _attendance.copyWith(clockOut: now);
-        confirmation = 'Clocked out at $timeLabel';
-      }
-      _now = now;
+      _attendance = results[0] as TodayAttendance;
+      _progress = results[1] as OjtProgress;
+      _history = results[2] as List<AttendanceHistoryEntry>;
     });
+  }
 
-    if (confirmation != null) {
+  Future<void> _handleClockAction() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final updated = _attendance.hasClockedIn
+          ? await widget.service.clockOut()
+          : await widget.service.clockIn();
+      final progress = await widget.service.getProgress();
+      if (!mounted) return;
+      final timeLabel = DateFormat(
+        'hh:mm a',
+      ).format(updated.clockOut ?? updated.clockIn ?? DateTime.now());
+      setState(() {
+        _attendance = updated;
+        _progress = progress;
+        _now = DateTime.now();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(confirmation!),
+          content: Text(
+            updated.hasClockedOut
+                ? 'Clocked out at $timeLabel'
+                : 'Clocked in at $timeLabel',
+          ),
           backgroundColor: AppColors.successGreenText,
         ),
       );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.statRedIcon),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -91,42 +125,47 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
     return SafeArea(
       top: false,
       bottom: false,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const AppHeader(
-              title: 'Attendance',
-              subtitle: 'Monitor & Track Time Records',
-            ),
-            Transform.translate(
-              offset: const Offset(0, -30),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: OjtProgressCard(progress: widget.progress),
+      child: RefreshIndicator(
+        color: AppColors.primaryMaroon,
+        onRefresh: _refresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AppHeader(
+                title: 'Attendance',
+                subtitle: 'Monitor & Track Time Records',
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: TodayAttendanceCard(attendance: _attendance),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: AttendanceQuickActions(
-                attendance: _attendance,
-                currentTime: _now,
-                onClockAction: _handleClockAction,
-                onCorrectionRequest: _handleCorrectionRequest,
+              Transform.translate(
+                offset: const Offset(0, -30),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: OjtProgressCard(progress: _progress),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: AttendanceHistorySection(
-                history: widget.history,
-                onViewAll: _handleViewAllHistory,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: TodayAttendanceCard(attendance: _attendance),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: AttendanceQuickActions(
+                  attendance: _attendance,
+                  currentTime: _now,
+                  onClockAction: _busy ? null : _handleClockAction,
+                  onCorrectionRequest: _handleCorrectionRequest,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: AttendanceHistorySection(
+                  history: _history,
+                  onViewAll: _handleViewAllHistory,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

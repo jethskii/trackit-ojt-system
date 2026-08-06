@@ -31,9 +31,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) setState(() => _loading = false);
-    });
+    _load();
+  }
+
+  Future<void> _load() async {
+    await widget.service.load();
+    if (mounted) setState(() => _loading = false);
   }
 
   List<AppNotification> _applyFilters(List<AppNotification> source) {
@@ -90,9 +93,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     widget.onNavigateTo(notification.target);
   }
 
-  Future<void> _refresh() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
+  Future<void> _refresh() => widget.service.load();
 
   @override
   Widget build(BuildContext context) {

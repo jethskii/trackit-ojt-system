@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/notification.dart';
+import 'api_client.dart';
 
 /// Repository-style interface so a real API (and eventually push/WebSocket
 /// delivery) can be dropped in later. For now this is session-local: no
@@ -9,6 +10,10 @@ import '../models/notification.dart';
 abstract class NotificationsService extends ChangeNotifier {
   List<AppNotification> get notifications;
   int get unreadCount;
+
+  /// Fetches the current list from the backend. A no-op for the mock,
+  /// which already holds its data in memory.
+  Future<void> load();
 
   Future<void> markAsRead(String id);
   Future<void> markAllAsRead();
@@ -106,6 +111,9 @@ class MockNotificationsService extends ChangeNotifier
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   @override
+  Future<void> load() async {}
+
+  @override
   Future<void> markAsRead(String id) async {
     final index = _notifications.indexWhere((n) => n.id == id);
     if (index == -1 || _notifications[index].isRead) return;
@@ -129,5 +137,58 @@ class MockNotificationsService extends ChangeNotifier
   Future<void> deleteNotification(String id) async {
     _notifications.removeWhere((n) => n.id == id);
     notifyListeners();
+  }
+}
+
+class HttpNotificationsService extends ChangeNotifier
+    implements NotificationsService {
+  final ApiClient client;
+  List<AppNotification> _notifications = [];
+
+  HttpNotificationsService(this.client);
+
+  @override
+  List<AppNotification> get notifications => List.unmodifiable(_notifications);
+
+  @override
+  int get unreadCount => _notifications.where((n) => !n.isRead).length;
+
+  @override
+  Future<void> load() async {
+    final response = await client.get('/api/notifications');
+    final rows = response['notifications'] as List<dynamic>;
+    _notifications = rows
+        .map((row) => AppNotification.fromJson(row as Map<String, dynamic>))
+        .toList();
+    notifyListeners();
+  }
+
+  @override
+  Future<void> markAsRead(String id) async {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index == -1 || _notifications[index].isRead) return;
+    _notifications[index] = _notifications[index].copyWith(isRead: true);
+    notifyListeners();
+    await client.patch('/api/notifications/$id/read');
+  }
+
+  @override
+  Future<void> markAllAsRead() async {
+    var changed = false;
+    for (var i = 0; i < _notifications.length; i++) {
+      if (!_notifications[i].isRead) {
+        _notifications[i] = _notifications[i].copyWith(isRead: true);
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+    await client.patch('/api/notifications/read-all');
+  }
+
+  @override
+  Future<void> deleteNotification(String id) async {
+    _notifications.removeWhere((n) => n.id == id);
+    notifyListeners();
+    await client.delete('/api/notifications/$id');
   }
 }

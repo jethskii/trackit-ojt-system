@@ -1,13 +1,14 @@
 import '../models/hte_company.dart';
 import '../models/staff_contact.dart';
 import '../models/student_profile.dart';
+import 'api_client.dart';
 
 abstract class StudentProfileService {
   Future<StudentProfile> getProfile();
 
-  /// Real photo upload needs image_picker/cropper + a storage backend,
-  /// neither of which exist yet -- this just updates the in-memory
-  /// profile so the rest of the app has a single place to swap in a real
+  /// Real photo upload needs image_picker/cropper, neither of which are
+  /// wired up in the UI yet -- this just updates the in-memory profile so
+  /// the rest of the app has a single place to swap in a real
   /// implementation later.
   Future<StudentProfile> updateAvatar(String avatarUrl);
 }
@@ -57,5 +58,26 @@ class MockStudentProfileService implements StudentProfileService {
   Future<StudentProfile> updateAvatar(String avatarUrl) async {
     _profile = _profile.copyWith(avatarUrl: avatarUrl);
     return _profile;
+  }
+}
+
+class HttpStudentProfileService implements StudentProfileService {
+  final ApiClient client;
+
+  HttpStudentProfileService(this.client);
+
+  @override
+  Future<StudentProfile> getProfile() async {
+    final response = await client.get('/api/profile');
+    return StudentProfile.fromJson(response['profile'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<StudentProfile> updateAvatar(String avatarUrl) async {
+    // Not called from the UI yet -- there's no image_picker integration
+    // to produce real bytes for POST /api/profile/avatar (a multipart
+    // upload) to receive. Once that's wired up, this should take the
+    // picked image's bytes instead of a pre-existing URL string.
+    return getProfile();
   }
 }

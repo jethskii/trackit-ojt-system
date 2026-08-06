@@ -5,6 +5,12 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+const SELECT_WITH_COMPANY = `
+  SELECT r.*, c.name AS company_name
+  FROM activity_reports r
+  LEFT JOIN hte_companies c ON c.id = r.company_id
+`;
+
 async function attachAttachments(reports) {
   if (reports.length === 0) return reports;
   const ids = reports.map((r) => r.id);
@@ -24,7 +30,7 @@ async function attachAttachments(reports) {
 router.get('/', async (req, res) => {
   try {
     const reports = await pool.query(
-      'SELECT * FROM activity_reports WHERE student_id = $1 ORDER BY report_date DESC',
+      `${SELECT_WITH_COMPANY} WHERE r.student_id = $1 ORDER BY r.report_date DESC`,
       [req.studentId],
     );
     const result = await attachAttachments(reports.rows);
@@ -42,24 +48,34 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
 
-    const result = await pool.query(
-      `INSERT INTO activity_reports (student_id, title, report_date, hours_rendered, description, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [req.studentId, title, reportDate, hoursRendered, description, status],
+    const studentResult = await pool.query('SELECT company_id FROM students WHERE id = $1', [
+      req.studentId,
+    ]);
+    const companyId = studentResult.rows[0]?.company_id ?? null;
+
+    const inserted = await pool.query(
+      `INSERT INTO activity_reports
+         (student_id, company_id, title, report_date, hours_rendered, description, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`,
+      [req.studentId, companyId, title, reportDate, hoursRendered, description, status],
     );
-    const report = result.rows[0];
+    const reportId = inserted.rows[0].id;
 
     if (Array.isArray(attachments)) {
       for (const fileName of attachments) {
         await pool.query(
           'INSERT INTO activity_report_attachments (activity_report_id, file_name) VALUES ($1, $2)',
-          [report.id, fileName],
+          [reportId, fileName],
         );
       }
     }
 
-    res.status(201).json({ success: true, report: { ...report, attachments: attachments || [] } });
+    const full = await pool.query(`${SELECT_WITH_COMPANY} WHERE r.id = $1`, [reportId]);
+    res.status(201).json({
+      success: true,
+      report: { ...full.rows[0], attachments: attachments || [] },
+    });
   } catch (error) {
     console.error('Create activity report error:', error);
     res.status(500).json({ success: false, message: 'Failed to create activity report.' });
@@ -79,12 +95,11 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Report not found.' });
     }
 
-    const result = await pool.query(
+    await pool.query(
       `UPDATE activity_reports
        SET title = $1, report_date = $2, hours_rendered = $3, description = $4,
            status = $5, updated_at = now()
-       WHERE id = $6 AND student_id = $7
-       RETURNING *`,
+       WHERE id = $6 AND student_id = $7`,
       [title, reportDate, hoursRendered, description, status, id, req.studentId],
     );
 
@@ -100,7 +115,8 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    res.json({ success: true, report: { ...result.rows[0], attachments: attachments || [] } });
+    const full = await pool.query(`${SELECT_WITH_COMPANY} WHERE r.id = $1`, [id]);
+    res.json({ success: true, report: { ...full.rows[0], attachments: attachments || [] } });
   } catch (error) {
     console.error('Update activity report error:', error);
     res.status(500).json({ success: false, message: 'Failed to update activity report.' });

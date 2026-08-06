@@ -11,12 +11,14 @@ class ProfileScreen extends StatefulWidget {
   final StudentProfileService service;
   final VoidCallback onOpenHelpCenter;
   final VoidCallback onOpenSettings;
+  final VoidCallback onLoggedOut;
 
   const ProfileScreen({
     super.key,
     required this.service,
     required this.onOpenHelpCenter,
     required this.onOpenSettings,
+    required this.onLoggedOut,
   });
 
   @override
@@ -139,13 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Logout will be enabled once the login/auth module is built.',
-                  ),
-                ),
-              );
+              widget.onLoggedOut();
             },
             child: const Text('Log Out'),
           ),

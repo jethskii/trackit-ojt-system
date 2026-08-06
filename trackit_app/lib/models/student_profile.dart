@@ -2,6 +2,11 @@ import 'hte_company.dart';
 import 'staff_contact.dart';
 
 class StudentProfile {
+  /// This is a single-department app (DCSE at Dalubhasaan ng Lungsod ng
+  /// San Pablo), so "school" is a constant rather than a per-student
+  /// database column.
+  static const String defaultSchool = 'Dalubhasaan ng Lungsod ng San Pablo';
+
   final String fullName;
   final String studentNumber;
   final String course;
@@ -31,6 +36,29 @@ class StudentProfile {
     this.company,
     this.supervisor,
   });
+
+  factory StudentProfile.fromJson(Map<String, dynamic> json) {
+    return StudentProfile(
+      fullName: json['fullName'] as String,
+      studentNumber: json['studentNumber'] as String? ?? 'Not set',
+      course: json['course'] as String,
+      yearLevel: json['yearLevel'] as String? ?? 'Not set',
+      section: json['section'] as String,
+      school: defaultSchool,
+      email: json['email'] as String,
+      mobileNumber: json['mobileNumber'] as String? ?? 'Not set',
+      avatarUrl: json['avatarUrl'] as String?,
+      adviser: json['adviser'] != null
+          ? StaffContact.fromJson(json['adviser'] as Map<String, dynamic>)
+          : null,
+      company: json['company'] != null
+          ? HteCompany.fromJson(json['company'] as Map<String, dynamic>)
+          : null,
+      supervisor: json['supervisor'] != null
+          ? StaffContact.fromJson(json['supervisor'] as Map<String, dynamic>)
+          : null,
+    );
+  }
 
   StudentProfile copyWith({String? avatarUrl}) {
     return StudentProfile(

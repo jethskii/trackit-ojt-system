@@ -13,4 +13,14 @@ class StaffContact {
     required this.phone,
     this.photoUrl,
   });
+
+  factory StaffContact.fromJson(Map<String, dynamic> json) {
+    return StaffContact(
+      name: json['name'] as String,
+      role: json['role'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String,
+      photoUrl: json['photoUrl'] as String?,
+    );
+  }
 }

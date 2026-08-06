@@ -1,3 +1,5 @@
+import 'student_profile.dart';
+
 class Student {
   final String name;
   final String course;
@@ -12,6 +14,16 @@ class Student {
     required this.companyName,
     this.avatarUrl,
   });
+
+  factory Student.fromProfile(StudentProfile profile) {
+    return Student(
+      name: profile.fullName,
+      course: profile.course,
+      section: profile.section,
+      companyName: profile.company?.name ?? 'Not assigned yet',
+      avatarUrl: profile.avatarUrl,
+    );
+  }
 
   String get courseAndSection => '$course - $section';
 }

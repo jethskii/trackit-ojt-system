@@ -24,6 +24,34 @@ class AppNotification {
     this.isRead = false,
   });
 
+  static NotificationTarget _targetFromModule(String? module) {
+    switch (module) {
+      case 'attendance':
+        return NotificationTarget.attendance;
+      case 'documents':
+        return NotificationTarget.documents;
+      case 'profile':
+        return NotificationTarget.profile;
+      default:
+        return NotificationTarget.home;
+    }
+  }
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) {
+    return AppNotification(
+      id: json['id'].toString(),
+      category: NotificationCategory.values.firstWhere(
+        (c) => c.name == json['category'],
+        orElse: () => NotificationCategory.system,
+      ),
+      title: json['title'] as String,
+      message: json['message'] as String,
+      target: _targetFromModule(json['related_module'] as String?),
+      createdAt: DateTime.parse(json['created_at'] as String),
+      isRead: json['is_read'] as bool? ?? false,
+    );
+  }
+
   AppNotification copyWith({bool? isRead}) {
     return AppNotification(
       id: id,

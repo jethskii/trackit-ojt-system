@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/student.dart';
 import '../../../services/activity_reports_service.dart';
+import '../../../services/api_client.dart';
 import '../../../services/hte_directory_service.dart';
 import '../../../services/ojt_requirements_service.dart';
 import 'activity_reports_screen.dart';
@@ -14,8 +15,13 @@ import 'startup_requirements_screen.dart';
 /// screen the way a root-level push would.
 class DocumentsTabNavigator extends StatefulWidget {
   final Student student;
+  final ApiClient client;
 
-  const DocumentsTabNavigator({super.key, required this.student});
+  const DocumentsTabNavigator({
+    super.key,
+    required this.student,
+    required this.client,
+  });
 
   @override
   State<DocumentsTabNavigator> createState() => _DocumentsTabNavigatorState();
@@ -23,9 +29,14 @@ class DocumentsTabNavigator extends StatefulWidget {
 
 class _DocumentsTabNavigatorState extends State<DocumentsTabNavigator> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  final HteDirectoryService _hteService = MockHteDirectoryService();
-  final OjtRequirementsService _ojtService = MockOjtRequirementsService();
-  final ActivityReportsService _reportsService = MockActivityReportsService();
+  late final HteDirectoryService _hteService = HttpHteDirectoryService(
+    widget.client,
+  );
+  late final OjtRequirementsService _ojtService = HttpOjtRequirementsService(
+    widget.client,
+  );
+  late final ActivityReportsService _reportsService =
+      HttpActivityReportsService(widget.client);
 
   @override
   Widget build(BuildContext context) {

@@ -19,6 +19,23 @@ class OjtRequirementDoc {
     this.uploadedFileName,
   });
 
+  factory OjtRequirementDoc.fromJson(Map<String, dynamic> json) {
+    return OjtRequirementDoc(
+      id: json['id'].toString(),
+      name: json['name'] as String,
+      description: json['description'] as String,
+      status: RequirementDocStatus.values.firstWhere(
+        (s) => s.name == json['status'],
+        orElse: () => RequirementDocStatus.missing,
+      ),
+      deadline: json['deadline'] != null
+          ? DateTime.parse(json['deadline'] as String)
+          : null,
+      hasTemplate: json['hasTemplate'] as bool? ?? false,
+      uploadedFileName: json['uploadedFileName'] as String?,
+    );
+  }
+
   OjtRequirementDoc copyWith({
     RequirementDocStatus? status,
     String? uploadedFileName,

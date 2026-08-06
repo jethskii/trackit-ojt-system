@@ -25,6 +25,22 @@ class OjtRequirementPhase {
         d.status == RequirementDocStatus.approved,
   );
 
+  factory OjtRequirementPhase.fromJson(Map<String, dynamic> json) {
+    return OjtRequirementPhase(
+      id: json['id'].toString(),
+      order: (json['order'] as num).toInt(),
+      title: json['title'] as String,
+      description: json['description'] as String,
+      status: PhaseStatus.values.firstWhere(
+        (s) => s.name == json['status'],
+        orElse: () => PhaseStatus.locked,
+      ),
+      documents: (json['documents'] as List<dynamic>)
+          .map((d) => OjtRequirementDoc.fromJson(d as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
   OjtRequirementPhase copyWith({
     PhaseStatus? status,
     List<OjtRequirementDoc>? documents,

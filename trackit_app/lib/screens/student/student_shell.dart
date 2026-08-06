@@ -3,6 +3,8 @@ import '../../models/attendance.dart';
 import '../../models/notification.dart';
 import '../../models/ojt_progress.dart';
 import '../../models/student.dart';
+import '../../services/api_client.dart';
+import '../../services/attendance_service.dart';
 import '../../services/notifications_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
@@ -13,19 +15,23 @@ import 'student_attendance_view.dart';
 import 'student_home_view.dart';
 
 class StudentShell extends StatefulWidget {
+  final ApiClient client;
   final Student student;
-  final OjtProgress progress;
+  final OjtProgress initialProgress;
+  final TodayAttendance initialAttendance;
+  final List<AttendanceHistoryEntry> initialHistory;
   final List<String> announcements;
-  final TodayAttendance todayAttendance;
-  final List<AttendanceHistoryEntry> attendanceHistory;
+  final VoidCallback onLoggedOut;
 
   const StudentShell({
     super.key,
+    required this.client,
     required this.student,
-    required this.progress,
-    required this.todayAttendance,
+    required this.initialProgress,
+    required this.initialAttendance,
+    this.initialHistory = const [],
     this.announcements = const [],
-    this.attendanceHistory = const [],
+    required this.onLoggedOut,
   });
 
   @override
@@ -34,7 +40,11 @@ class StudentShell extends StatefulWidget {
 
 class _StudentShellState extends State<StudentShell> {
   int _navIndex = 0;
-  final NotificationsService _notificationsService = MockNotificationsService();
+  late final AttendanceService _attendanceService = HttpAttendanceService(
+    widget.client,
+  );
+  late final NotificationsService _notificationsService =
+      HttpNotificationsService(widget.client);
 
   void _goToTab(NotificationTarget target) {
     final index = switch (target) {
@@ -51,20 +61,24 @@ class _StudentShellState extends State<StudentShell> {
     final pages = [
       StudentHomeView(
         student: widget.student,
-        progress: widget.progress,
+        progress: widget.initialProgress,
         announcements: widget.announcements,
       ),
       StudentAttendanceView(
-        progress: widget.progress,
-        initialAttendance: widget.todayAttendance,
-        history: widget.attendanceHistory,
+        service: _attendanceService,
+        initialProgress: widget.initialProgress,
+        initialAttendance: widget.initialAttendance,
+        initialHistory: widget.initialHistory,
       ),
-      DocumentsTabNavigator(student: widget.student),
+      DocumentsTabNavigator(student: widget.student, client: widget.client),
       NotificationsScreen(
         service: _notificationsService,
         onNavigateTo: _goToTab,
       ),
-      const ProfileTabNavigator(),
+      ProfileTabNavigator(
+        client: widget.client,
+        onLoggedOut: widget.onLoggedOut,
+      ),
     ];
 
     return Scaffold(

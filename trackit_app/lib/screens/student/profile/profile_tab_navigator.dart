@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/api_client.dart';
 import '../../../services/student_profile_service.dart';
 import 'help_center_screen.dart';
 import 'profile_screen.dart';
@@ -7,7 +8,14 @@ import 'settings_screen.dart';
 /// Mirrors DocumentsTabNavigator: owns a nested Navigator so pushing into
 /// Help Center or Settings keeps StudentShell's bottom nav visible.
 class ProfileTabNavigator extends StatefulWidget {
-  const ProfileTabNavigator({super.key});
+  final ApiClient client;
+  final VoidCallback onLoggedOut;
+
+  const ProfileTabNavigator({
+    super.key,
+    required this.client,
+    required this.onLoggedOut,
+  });
 
   @override
   State<ProfileTabNavigator> createState() => _ProfileTabNavigatorState();
@@ -15,7 +23,9 @@ class ProfileTabNavigator extends StatefulWidget {
 
 class _ProfileTabNavigatorState extends State<ProfileTabNavigator> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  final StudentProfileService _profileService = MockStudentProfileService();
+  late final StudentProfileService _profileService = HttpStudentProfileService(
+    widget.client,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +54,7 @@ class _ProfileTabNavigatorState extends State<ProfileTabNavigator> {
                     _navigatorKey.currentState?.pushNamed('/help-center'),
                 onOpenSettings: () =>
                     _navigatorKey.currentState?.pushNamed('/settings'),
+                onLoggedOut: widget.onLoggedOut,
               );
           }
           return MaterialPageRoute(builder: (_) => page, settings: settings);

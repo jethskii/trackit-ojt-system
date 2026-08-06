@@ -11,7 +11,7 @@ const router = express.Router();
 // yet -- that's a follow-up once the Admin module is built.
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, course, section } = req.body;
+    const { name, email, password, course, section, studentNumber, yearLevel } = req.body;
     if (!name || !email || !password || !course || !section) {
       return res.status(400).json({
         success: false,
@@ -36,10 +36,10 @@ router.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO students (name, email, password_hash, course, section)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, email, course, section, avatar_url, required_hours`,
-      [name, normalizedEmail, passwordHash, course, section],
+      [name, normalizedEmail, passwordHash, course, section, studentNumber || null, yearLevel || null],
     );
     const student = result.rows[0];
     const token = generateToken(student.id);

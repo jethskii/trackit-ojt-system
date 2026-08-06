@@ -1,5 +1,6 @@
 import '../models/ojt_requirement_doc.dart';
 import '../models/ojt_requirement_phase.dart';
+import 'api_client.dart';
 
 /// Repository-style interface for the Startup Requirements workflow.
 ///
@@ -15,6 +16,37 @@ abstract class OjtRequirementsService {
     required String documentId,
     required String fileName,
   });
+}
+
+class HttpOjtRequirementsService implements OjtRequirementsService {
+  final ApiClient client;
+
+  HttpOjtRequirementsService(this.client);
+
+  @override
+  Future<List<OjtRequirementPhase>> getPhases() async {
+    final response = await client.get('/api/requirements');
+    final rows = response['phases'] as List<dynamic>;
+    return rows
+        .map((row) => OjtRequirementPhase.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<OjtRequirementPhase>> submitDocument({
+    required String phaseId,
+    required String documentId,
+    required String fileName,
+  }) async {
+    // No real file_picker plugin yet (see MockFilePickerSheet) -- the
+    // server accepts this as a JSON { fileName } submission until real
+    // file bytes are wired up.
+    await client.post(
+      '/api/requirements/$documentId/submit',
+      body: {'fileName': fileName},
+    );
+    return getPhases();
+  }
 }
 
 class MockOjtRequirementsService implements OjtRequirementsService {

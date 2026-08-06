@@ -6,7 +6,7 @@ import '../../utils/app_colors.dart';
 class AttendanceQuickActions extends StatelessWidget {
   final TodayAttendance attendance;
   final DateTime currentTime;
-  final VoidCallback onClockAction;
+  final VoidCallback? onClockAction;
   final VoidCallback onCorrectionRequest;
 
   const AttendanceQuickActions({
@@ -23,7 +23,7 @@ class AttendanceQuickActions extends StatelessWidget {
     final actionLabel = !attendance.hasClockedIn
         ? 'CLOCK IN'
         : (attendance.hasClockedOut ? 'CLOCKED OUT' : 'CLOCK OUT');
-    final enabled = !attendance.hasClockedOut;
+    final enabled = !attendance.hasClockedOut && onClockAction != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

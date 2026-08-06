@@ -21,6 +21,52 @@ class ActivityReport {
     required this.status,
   });
 
+  static ActivityReportStatus _statusFromDb(String value) {
+    switch (value) {
+      case 'draft':
+        return ActivityReportStatus.draft;
+      case 'submitted':
+        return ActivityReportStatus.submitted;
+      case 'reviewed':
+        return ActivityReportStatus.reviewed;
+      case 'approved':
+        return ActivityReportStatus.approved;
+      case 'needs_revision':
+        return ActivityReportStatus.needsRevision;
+      default:
+        return ActivityReportStatus.draft;
+    }
+  }
+
+  static String statusToDb(ActivityReportStatus status) {
+    switch (status) {
+      case ActivityReportStatus.draft:
+        return 'draft';
+      case ActivityReportStatus.submitted:
+        return 'submitted';
+      case ActivityReportStatus.reviewed:
+        return 'reviewed';
+      case ActivityReportStatus.approved:
+        return 'approved';
+      case ActivityReportStatus.needsRevision:
+        return 'needs_revision';
+    }
+  }
+
+  factory ActivityReport.fromJson(Map<String, dynamic> json) {
+    return ActivityReport(
+      id: json['id'].toString(),
+      title: json['title'] as String,
+      date: DateTime.parse(json['report_date'] as String),
+      company: json['company_name'] as String? ?? 'Not assigned yet',
+      hoursRendered: double.parse(json['hours_rendered'].toString()),
+      description: json['description'] as String? ?? '',
+      attachments:
+          (json['attachments'] as List<dynamic>?)?.cast<String>() ?? const [],
+      status: _statusFromDb(json['status'] as String),
+    );
+  }
+
   ActivityReport copyWith({
     String? title,
     DateTime? date,
