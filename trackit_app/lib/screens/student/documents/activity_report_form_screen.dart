@@ -108,7 +108,17 @@ class _ActivityReportFormScreenState extends State<ActivityReportFormScreen> {
   }
 
   Future<void> _save(ActivityReportStatus status) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please fix the highlighted fields before continuing.',
+          ),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
     final report = _buildReport(status);
     if (widget.existingReport == null) {
@@ -140,6 +150,7 @@ class _ActivityReportFormScreenState extends State<ActivityReportFormScreen> {
           Expanded(
             child: Form(
               key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
