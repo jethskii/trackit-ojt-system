@@ -4,8 +4,13 @@ import '../../utils/app_colors.dart';
 class AppBottomNavItem {
   final IconData icon;
   final String label;
+  final int badgeCount;
 
-  const AppBottomNavItem({required this.icon, required this.label});
+  const AppBottomNavItem({
+    required this.icon,
+    required this.label,
+    this.badgeCount = 0,
+  });
 }
 
 class AppBottomNav extends StatelessWidget {
@@ -74,7 +79,40 @@ class _NavButton extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(item.icon, color: color, size: 22),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(item.icon, color: color, size: 22),
+              if (item.badgeCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 15,
+                      minHeight: 15,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: AppColors.statRedIcon,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      item.badgeCount > 9 ? '9+' : '${item.badgeCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 2),
           Text(
             item.label,
