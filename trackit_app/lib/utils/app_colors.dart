@@ -27,4 +27,6 @@ class AppColors {
 
   static const Color statBlueBg = Color(0xFFE7F1FF);
   static const Color statBlueIcon = Color(0xFF2E7BEE);
+
+  static const Color chipGrayBg = Color(0xFFECECEC);
 }

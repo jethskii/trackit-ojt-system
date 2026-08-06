@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_colors.dart';
 
-class StudentHomeHeader extends StatelessWidget {
+class AppHeader extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const StudentHomeHeader({
-    super.key,
-    required this.title,
-    required this.subtitle,
-  });
+  const AppHeader({super.key, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {

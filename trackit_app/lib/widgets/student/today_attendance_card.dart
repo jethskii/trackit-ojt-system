@@ -1,0 +1,217 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../models/attendance.dart';
+import '../../utils/app_colors.dart';
+
+class TodayAttendanceCard extends StatelessWidget {
+  final TodayAttendance attendance;
+
+  const TodayAttendanceCard({super.key, required this.attendance});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = DateFormat('MMMM d, yyyy').format(attendance.date);
+    final clockInLabel = attendance.hasClockedIn
+        ? DateFormat('hh:mm a').format(attendance.clockIn!)
+        : '--:--';
+    final clockOutLabel = attendance.hasClockedOut
+        ? DateFormat('hh:mm a').format(attendance.clockOut!)
+        : '--:--';
+    final totalHoursLabel = '${_formatHours(attendance.totalHours)} Hrs';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.event_note,
+                size: 18,
+                color: AppColors.textPrimary,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  "Today's Attendance",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                dateLabel,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _AttendanceColumn(
+                    dotColor: AppColors.successGreenText,
+                    label: 'CLOCK IN',
+                    value: clockInLabel,
+                    valueColor: attendance.hasClockedIn
+                        ? AppColors.successGreenText
+                        : AppColors.textSecondary,
+                    pillLabel: attendance.hasClockedIn
+                        ? 'Completed'
+                        : 'Pending',
+                    pillBg: attendance.hasClockedIn
+                        ? AppColors.successGreenBg
+                        : AppColors.chipGrayBg,
+                    pillText: attendance.hasClockedIn
+                        ? AppColors.successGreenText
+                        : AppColors.textSecondary,
+                  ),
+                ),
+                const VerticalDivider(width: 16),
+                Expanded(
+                  child: _AttendanceColumn(
+                    dotColor: AppColors.primaryMaroon,
+                    label: 'CLOCK OUT',
+                    value: clockOutLabel,
+                    valueColor: attendance.hasClockedOut
+                        ? AppColors.primaryMaroon
+                        : AppColors.textPrimary,
+                    pillLabel: attendance.hasClockedOut
+                        ? 'Completed'
+                        : 'Unavailable',
+                    pillBg: attendance.hasClockedOut
+                        ? AppColors.successGreenBg
+                        : AppColors.chipGrayBg,
+                    pillText: attendance.hasClockedOut
+                        ? AppColors.successGreenText
+                        : AppColors.textSecondary,
+                  ),
+                ),
+                const VerticalDivider(width: 16),
+                Expanded(
+                  child: _AttendanceColumn(
+                    dotColor: AppColors.statBlueIcon,
+                    label: 'TOTAL HOURS',
+                    value: totalHoursLabel,
+                    valueColor: AppColors.statBlueIcon,
+                    pillLabel: attendance.hasClockedOut
+                        ? 'Completed'
+                        : 'On Going',
+                    pillBg: attendance.hasClockedOut
+                        ? AppColors.successGreenBg
+                        : AppColors.statBlueBg,
+                    pillText: attendance.hasClockedOut
+                        ? AppColors.successGreenText
+                        : AppColors.statBlueIcon,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatHours(double hours) {
+    return hours == hours.roundToDouble()
+        ? hours.toInt().toString()
+        : hours.toStringAsFixed(1);
+  }
+}
+
+class _AttendanceColumn extends StatelessWidget {
+  final Color dotColor;
+  final String label;
+  final String value;
+  final Color valueColor;
+  final String pillLabel;
+  final Color pillBg;
+  final Color pillText;
+
+  const _AttendanceColumn({
+    required this.dotColor,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+    required this.pillLabel,
+    required this.pillBg,
+    required this.pillText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: pillBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            pillLabel,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: pillText,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
