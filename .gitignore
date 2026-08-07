@@ -1,1 +1,8 @@
 .vscode/
+
+# Safety net: .env should only ever exist at trackit_app/.env (already
+# gitignored there too) -- this catches a stray copy at the repo root,
+# which has happened before during local troubleshooting.
+.env
+.env.*
+!.env.example
