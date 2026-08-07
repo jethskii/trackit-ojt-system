@@ -2,62 +2,39 @@ import 'package:flutter/material.dart';
 import '../../models/ojt_progress.dart';
 import '../../models/ojt_stage.dart';
 import '../../utils/app_colors.dart';
-import 'ojt_progress_status_badge.dart';
 
 /// A single badge combining OJT lifecycle stage (Active/Preparing/Not
 /// Started/Completed) with pace ([OjtProgressStatus]) into the one label a
-/// teacher actually scans a student list for: is this student currently
-/// active, and if so, are they falling behind. A pace warning (Behind /
-/// Needs Attention) always takes priority over the plain "Active" label
-/// since it's the more actionable signal; otherwise it falls back to the
-/// student's lifecycle stage.
+/// teacher actually scans a student list for. Deliberately just two
+/// colors: green means "on pace and actively logging hours right now",
+/// red means anything else that needs the teacher's attention (falling
+/// behind, not yet started, still preparing) -- the progress bar below
+/// reuses this same color so the two always match.
 (String, IconData, Color, Color) studentActivityStyle({
   required OjtStage stage,
   required OjtProgressStatus progressStatus,
 }) {
+  const green = (AppColors.successGreenBg, AppColors.successGreenText);
+  const red = (AppColors.statRedBg, AppColors.statRedIcon);
+
   if (stage == OjtStage.completed) {
-    return (
-      'Completed',
-      Icons.check_circle,
-      AppColors.successGreenBg,
-      AppColors.successGreenText,
-    );
+    return ('Completed', Icons.check_circle, green.$1, green.$2);
   }
-  if (stage == OjtStage.active &&
-      (progressStatus == OjtProgressStatus.behind ||
-          progressStatus == OjtProgressStatus.needsAttention)) {
-    return ojtProgressStatusStyle(progressStatus);
+  if (stage == OjtStage.active) {
+    final onPace = progressStatus != OjtProgressStatus.behind &&
+        progressStatus != OjtProgressStatus.needsAttention;
+    if (onPace) {
+      return ('Active', Icons.directions_run, green.$1, green.$2);
+    }
+    final label = progressStatus == OjtProgressStatus.needsAttention
+        ? 'Needs Attention'
+        : 'Behind';
+    return (label, Icons.trending_down, red.$1, red.$2);
   }
-  switch (stage) {
-    case OjtStage.active:
-      return (
-        'Active',
-        Icons.directions_run,
-        AppColors.successGreenBg,
-        AppColors.successGreenText,
-      );
-    case OjtStage.readyForDeployment:
-      return (
-        'Preparing',
-        Icons.flight_takeoff,
-        AppColors.statOrangeBg,
-        AppColors.statOrangeIcon,
-      );
-    case OjtStage.completed:
-      return (
-        'Completed',
-        Icons.check_circle,
-        AppColors.successGreenBg,
-        AppColors.successGreenText,
-      );
-    case OjtStage.notStarted:
-      return (
-        'Inactive',
-        Icons.pause_circle_outline,
-        AppColors.chipGrayBg,
-        AppColors.textSecondary,
-      );
+  if (stage == OjtStage.readyForDeployment) {
+    return ('Preparing', Icons.flight_takeoff, red.$1, red.$2);
   }
+  return ('Inactive', Icons.pause_circle_outline, red.$1, red.$2);
 }
 
 class StudentActivityBadge extends StatelessWidget {
