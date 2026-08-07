@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../models/instructor_class.dart';
+import '../../services/api_client.dart';
 import '../../services/teacher_classes_service.dart';
 import '../../services/teacher_requirements_service.dart';
 import '../../utils/app_colors.dart';
@@ -81,15 +82,31 @@ class _CreateCustomRequirementScreenState
       return;
     }
     setState(() => _saving = true);
-    await widget.requirementsService.createCustomRequirement(
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      deadline: _deadline,
-      classIds: _selectedClassIds.toList(),
-    );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    Navigator.of(context).pop('Requirement posted.');
+    try {
+      await widget.requirementsService.createCustomRequirement(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        deadline: _deadline,
+        classIds: _selectedClassIds.toList(),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop('Requirement posted.');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.statRedIcon),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not reach the server. Is it running?'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override

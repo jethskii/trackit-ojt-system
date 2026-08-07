@@ -94,15 +94,6 @@ class _TeacherNotificationsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _tab == _NoticeTab.announcements
-          ? FloatingActionButton.extended(
-              backgroundColor: AppColors.primaryMaroon,
-              foregroundColor: Colors.white,
-              onPressed: _createAnnouncement,
-              icon: const Icon(Icons.campaign),
-              label: const Text('Create Announcement'),
-            )
-          : null,
       body: SafeArea(
         top: false,
         bottom: false,
@@ -166,6 +157,26 @@ class _TeacherNotificationsScreenState
                 ),
               ),
             ),
+            if (_tab == _NoticeTab.announcements)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _createAnnouncement,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create Announcement'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryMaroon,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Expanded(
               child: _tab == _NoticeTab.notifications
                   ? _buildNotifications()
@@ -232,20 +243,18 @@ class _TeacherNotificationsScreenState
       onRefresh: _loadAnnouncements,
       child: announcements.isEmpty
           ? ListView(
-              padding: const EdgeInsets.only(bottom: 80),
-              children: [
+              padding: const EdgeInsets.only(bottom: 24),
+              children: const [
                 EmptyStateView(
                   icon: Icons.campaign_outlined,
                   title: 'No announcements yet',
-                  message: 'Tap "Create Announcement" to post one to your '
-                      'class.',
-                  actionLabel: 'Create Announcement',
-                  onAction: _createAnnouncement,
+                  message: 'Tap "Create Announcement" above to post one to '
+                      'your class.',
                 ),
               ],
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
                 for (final announcement in announcements)
                   AnnouncementCard(announcement: announcement),
