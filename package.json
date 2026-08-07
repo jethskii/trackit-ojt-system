@@ -1,0 +1,9 @@
+{
+  "name": "trackit-ojt-system",
+  "private": true,
+  "description": "Convenience scripts so `npm start` works from the repo root -- the actual server lives in trackit_app/server.",
+  "scripts": {
+    "start": "node trackit_app/server/index.js",
+    "server:install": "npm install --prefix trackit_app/server"
+  }
+}
