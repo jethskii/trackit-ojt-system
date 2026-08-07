@@ -5,19 +5,33 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
-// company_id (hte_companies) is only ever set by a future Admin module that
-// doesn't exist yet, so it's effectively always null -- fall back to the
-// student's self-reported company name (Confirm Company Details) instead.
-const SELECT_WITH_COMPANY = `
-  SELECT r.*, COALESCE(c.name, sp.company_name) AS company_name
-  FROM activity_reports r
-  LEFT JOIN hte_companies c ON c.id = r.company_id
-  LEFT JOIN student_profiles sp ON sp.student_id = r.student_id
-`;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function dateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+// One slot per OJT week, from ojtStartDate through the current week --
+// purely a record/compilation, no link to attendance or hours.
+function generateWeeks(ojtStartDate) {
+  const start = new Date(ojtStartDate);
+  const now = new Date();
+  const daysElapsed = Math.max(0, Math.floor((now - start) / MS_PER_DAY));
+  const currentWeek = Math.floor(daysElapsed / 7) + 1;
+
+  const weeks = [];
+  for (let n = 1; n <= currentWeek; n++) {
+    const weekStart = new Date(start.getTime() + (n - 1) * 7 * MS_PER_DAY);
+    const weekEnd = new Date(weekStart.getTime() + 6 * MS_PER_DAY);
+    weeks.push({ weekNumber: n, weekStartDate: weekStart, weekEndDate: weekEnd });
+  }
+  return weeks;
+}
 
 async function attachAttachments(reports) {
   if (reports.length === 0) return reports;
-  const ids = reports.map((r) => r.id);
+  const ids = reports.map((r) => r.id).filter(Boolean);
+  if (ids.length === 0) return reports;
   const attachments = await pool.query(
     'SELECT * FROM activity_report_attachments WHERE activity_report_id = ANY($1::bigint[])',
     [ids],
@@ -28,44 +42,112 @@ async function attachAttachments(reports) {
     list.push(a.file_name);
     byReport.set(a.activity_report_id, list);
   }
-  return reports.map((r) => ({ ...r, attachments: byReport.get(r.id) || [] }));
+  return reports.map((r) => ({
+    ...r,
+    attachments: r.id ? byReport.get(r.id) || [] : [],
+  }));
+}
+
+function toReportJson(row) {
+  return {
+    weekNumber: row.weekNumber,
+    weekStartDate: dateOnly(row.weekStartDate),
+    weekEndDate: dateOnly(row.weekEndDate),
+    status: row.status || 'missing',
+    description: row.description || null,
+    attachments: row.attachments || [],
+    submittedAt: row.submitted_at,
+    remarks: row.remarks || null,
+  };
 }
 
 router.get('/', async (req, res) => {
   try {
-    const reports = await pool.query(
-      `${SELECT_WITH_COMPANY} WHERE r.student_id = $1 ORDER BY r.report_date DESC`,
+    const profileResult = await pool.query(
+      'SELECT ojt_start_date FROM student_profiles WHERE student_id = $1',
       [req.studentId],
     );
-    const result = await attachAttachments(reports.rows);
-    res.json({ success: true, reports: result });
+    const ojtStartDate = profileResult.rows[0]?.ojt_start_date ?? null;
+    if (!ojtStartDate) {
+      return res.json({ success: true, reports: [] });
+    }
+
+    const weeks = generateWeeks(ojtStartDate);
+    const submissions = await pool.query(
+      'SELECT * FROM activity_reports WHERE student_id = $1 AND week_number IS NOT NULL',
+      [req.studentId],
+    );
+    const withAttachments = await attachAttachments(submissions.rows);
+    const byWeek = new Map(withAttachments.map((r) => [r.week_number, r]));
+
+    const merged = weeks.map((week) => {
+      const submission = byWeek.get(week.weekNumber);
+      return toReportJson({
+        ...week,
+        status: submission?.status,
+        description: submission?.description,
+        attachments: submission?.attachments,
+        submitted_at: submission?.submitted_at,
+        remarks: submission?.remarks,
+      });
+    });
+
+    res.json({ success: true, reports: merged });
   } catch (error) {
     console.error('Get activity reports error:', error);
     res.status(500).json({ success: false, message: 'Failed to load activity reports.' });
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/:weekNumber/submit', async (req, res) => {
   try {
-    const { title, reportDate, hoursRendered, description, status, attachments } = req.body;
-    if (!title || !reportDate || hoursRendered === undefined || !description || !status) {
-      return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    const weekNumber = Number(req.params.weekNumber);
+    const { description, attachments } = req.body;
+    if (!description || !description.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'A description is required.' });
     }
 
-    const studentResult = await pool.query('SELECT company_id FROM students WHERE id = $1', [
-      req.studentId,
-    ]);
-    const companyId = studentResult.rows[0]?.company_id ?? null;
+    const profileResult = await pool.query(
+      'SELECT ojt_start_date FROM student_profiles WHERE student_id = $1',
+      [req.studentId],
+    );
+    const ojtStartDate = profileResult.rows[0]?.ojt_start_date ?? null;
+    if (!ojtStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Set your company details (with OJT Start Date) before submitting reports.',
+      });
+    }
+
+    const weeks = generateWeeks(ojtStartDate);
+    const week = weeks.find((w) => w.weekNumber === weekNumber);
+    if (!week) {
+      return res.status(400).json({ success: false, message: 'Invalid or future week.' });
+    }
 
     const inserted = await pool.query(
       `INSERT INTO activity_reports
-         (student_id, company_id, title, report_date, hours_rendered, description, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (student_id, week_number, week_start_date, week_end_date, description, status, submitted_at)
+       VALUES ($1, $2, $3, $4, $5, 'submitted', now())
+       ON CONFLICT (student_id, week_number)
+       DO UPDATE SET description = $5, status = 'submitted', submitted_at = now(),
+         week_start_date = $3, week_end_date = $4, updated_at = now()
        RETURNING id`,
-      [req.studentId, companyId, title, reportDate, hoursRendered, description, status],
+      [
+        req.studentId,
+        weekNumber,
+        dateOnly(week.weekStartDate),
+        dateOnly(week.weekEndDate),
+        description.trim(),
+      ],
     );
     const reportId = inserted.rows[0].id;
 
+    await pool.query('DELETE FROM activity_report_attachments WHERE activity_report_id = $1', [
+      reportId,
+    ]);
     if (Array.isArray(attachments)) {
       for (const fileName of attachments) {
         await pool.query(
@@ -75,55 +157,10 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const full = await pool.query(`${SELECT_WITH_COMPANY} WHERE r.id = $1`, [reportId]);
-    res.status(201).json({
-      success: true,
-      report: { ...full.rows[0], attachments: attachments || [] },
-    });
+    res.json({ success: true });
   } catch (error) {
-    console.error('Create activity report error:', error);
-    res.status(500).json({ success: false, message: 'Failed to create activity report.' });
-  }
-});
-
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, reportDate, hoursRendered, description, status, attachments } = req.body;
-
-    const existing = await pool.query(
-      'SELECT id FROM activity_reports WHERE id = $1 AND student_id = $2',
-      [id, req.studentId],
-    );
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Report not found.' });
-    }
-
-    await pool.query(
-      `UPDATE activity_reports
-       SET title = $1, report_date = $2, hours_rendered = $3, description = $4,
-           status = $5, updated_at = now()
-       WHERE id = $6 AND student_id = $7`,
-      [title, reportDate, hoursRendered, description, status, id, req.studentId],
-    );
-
-    await pool.query('DELETE FROM activity_report_attachments WHERE activity_report_id = $1', [
-      id,
-    ]);
-    if (Array.isArray(attachments)) {
-      for (const fileName of attachments) {
-        await pool.query(
-          'INSERT INTO activity_report_attachments (activity_report_id, file_name) VALUES ($1, $2)',
-          [id, fileName],
-        );
-      }
-    }
-
-    const full = await pool.query(`${SELECT_WITH_COMPANY} WHERE r.id = $1`, [id]);
-    res.json({ success: true, report: { ...full.rows[0], attachments: attachments || [] } });
-  } catch (error) {
-    console.error('Update activity report error:', error);
-    res.status(500).json({ success: false, message: 'Failed to update activity report.' });
+    console.error('Submit activity report error:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit activity report.' });
   }
 });
 

@@ -8,6 +8,11 @@ class Student {
   final String companyName;
   final String? avatarUrl;
 
+  /// When the student began their OJT, self-reported via Confirm Company
+  /// Details. Null until they've confirmed their company. Drives which
+  /// week slots Activity Reports generates.
+  final DateTime? ojtStartDate;
+
   const Student({
     required this.name,
     required this.course,
@@ -15,6 +20,7 @@ class Student {
     required this.hasCompany,
     required this.companyName,
     this.avatarUrl,
+    this.ojtStartDate,
   });
 
   factory Student.fromProfile(StudentProfile profile) {
@@ -25,6 +31,7 @@ class Student {
       hasCompany: profile.company != null,
       companyName: profile.company?.name ?? 'Not yet deployed',
       avatarUrl: profile.avatarUrl,
+      ojtStartDate: profile.company?.ojtStartDate,
     );
   }
 
