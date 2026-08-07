@@ -55,47 +55,61 @@ class TeacherHomeDashboardScreen extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 1.5,
+                child: Column(
                   children: [
-                    TeacherSummaryTile(
-                      icon: Icons.groups_outlined,
-                      iconColor: AppColors.primaryMaroon,
-                      backgroundColor: AppColors.statRedBg,
-                      label: 'Assigned Students',
-                      value: '${dashboard.assignedStudents}',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TeacherSummaryTile(
+                            icon: Icons.groups_outlined,
+                            iconColor: AppColors.primaryMaroon,
+                            backgroundColor: AppColors.statRedBg,
+                            label: 'Assigned Students',
+                            value: '${dashboard.assignedStudents}',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TeacherSummaryTile(
+                            icon: Icons.directions_run,
+                            iconColor: AppColors.statRedIcon,
+                            backgroundColor: AppColors.statRedBg,
+                            label: 'Active Students',
+                            value:
+                                '${dashboard.activeStudents}/${dashboard.assignedStudents}',
+                            progress: dashboard.assignedStudents == 0
+                                ? 0
+                                : dashboard.activeStudents /
+                                    dashboard.assignedStudents,
+                          ),
+                        ),
+                      ],
                     ),
-                    TeacherSummaryTile(
-                      icon: Icons.directions_run,
-                      iconColor: AppColors.statRedIcon,
-                      backgroundColor: AppColors.statRedBg,
-                      label: 'Active Students',
-                      value:
-                          '${dashboard.activeStudents}/${dashboard.assignedStudents}',
-                      progress: dashboard.assignedStudents == 0
-                          ? 0
-                          : dashboard.activeStudents / dashboard.assignedStudents,
-                    ),
-                    TeacherSummaryTile(
-                      icon: Icons.flight_takeoff,
-                      iconColor: AppColors.statOrangeIcon,
-                      backgroundColor: AppColors.statOrangeBg,
-                      label: 'Ready for Deployment',
-                      value:
-                          '${dashboard.readyForDeployment}/${dashboard.assignedStudents}',
-                    ),
-                    TeacherSummaryTile(
-                      icon: Icons.check_circle_outline,
-                      iconColor: AppColors.successGreenText,
-                      backgroundColor: AppColors.successGreenBg,
-                      label: 'Completed Students',
-                      value:
-                          '${dashboard.completedStudents}/${dashboard.assignedStudents}',
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TeacherSummaryTile(
+                            icon: Icons.flight_takeoff,
+                            iconColor: AppColors.statOrangeIcon,
+                            backgroundColor: AppColors.statOrangeBg,
+                            label: 'Ready for Deployment',
+                            value:
+                                '${dashboard.readyForDeployment}/${dashboard.assignedStudents}',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TeacherSummaryTile(
+                            icon: Icons.check_circle_outline,
+                            iconColor: AppColors.successGreenText,
+                            backgroundColor: AppColors.successGreenBg,
+                            label: 'Completed Students',
+                            value:
+                                '${dashboard.completedStudents}/${dashboard.assignedStudents}',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

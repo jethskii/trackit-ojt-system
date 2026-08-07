@@ -300,42 +300,51 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              GridView.count(
-                                crossAxisCount: 2,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                mainAxisSpacing: 10,
-                                crossAxisSpacing: 10,
-                                childAspectRatio: 1.9,
+                              Row(
                                 children: [
-                                  TeacherSummaryTile(
-                                    icon: Icons.groups_outlined,
-                                    iconColor: AppColors.primaryMaroon,
-                                    backgroundColor: AppColors.statRedBg,
-                                    label: 'Assigned Students',
-                                    value: '${_students.length}',
+                                  Expanded(
+                                    child: TeacherSummaryTile(
+                                      icon: Icons.groups_outlined,
+                                      iconColor: AppColors.primaryMaroon,
+                                      backgroundColor: AppColors.statRedBg,
+                                      label: 'Assigned Students',
+                                      value: '${_students.length}',
+                                    ),
                                   ),
-                                  TeacherSummaryTile(
-                                    icon: Icons.directions_run,
-                                    iconColor: AppColors.statRedIcon,
-                                    backgroundColor: AppColors.statRedBg,
-                                    label: 'Active Students',
-                                    value: '${_countByStage(OjtStage.active)}',
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TeacherSummaryTile(
+                                      icon: Icons.directions_run,
+                                      iconColor: AppColors.statRedIcon,
+                                      backgroundColor: AppColors.statRedBg,
+                                      label: 'Active Students',
+                                      value: '${_countByStage(OjtStage.active)}',
+                                    ),
                                   ),
-                                  TeacherSummaryTile(
-                                    icon: Icons.flight_takeoff,
-                                    iconColor: AppColors.statOrangeIcon,
-                                    backgroundColor: AppColors.statOrangeBg,
-                                    label: 'Preparing',
-                                    value:
-                                        '${_countByStage(OjtStage.readyForDeployment)}',
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TeacherSummaryTile(
+                                      icon: Icons.flight_takeoff,
+                                      iconColor: AppColors.statOrangeIcon,
+                                      backgroundColor: AppColors.statOrangeBg,
+                                      label: 'Preparing',
+                                      value:
+                                          '${_countByStage(OjtStage.readyForDeployment)}',
+                                    ),
                                   ),
-                                  TeacherSummaryTile(
-                                    icon: Icons.check_circle_outline,
-                                    iconColor: AppColors.successGreenText,
-                                    backgroundColor: AppColors.successGreenBg,
-                                    label: 'Completed Students',
-                                    value: '${_countByStage(OjtStage.completed)}',
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TeacherSummaryTile(
+                                      icon: Icons.check_circle_outline,
+                                      iconColor: AppColors.successGreenText,
+                                      backgroundColor: AppColors.successGreenBg,
+                                      label: 'Completed Students',
+                                      value: '${_countByStage(OjtStage.completed)}',
+                                    ),
                                   ),
                                 ],
                               ),

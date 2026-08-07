@@ -25,7 +25,7 @@ class TeacherSummaryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
         borderRadius: BorderRadius.circular(16),
@@ -38,23 +38,24 @@ class TeacherSummaryTile extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 26,
+            height: 26,
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 16, color: iconColor),
+            child: Icon(icon, size: 14, color: iconColor),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
             ),
@@ -62,15 +63,15 @@ class TeacherSummaryTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
           ),
           if (progress != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: LinearProgressIndicator(
                 value: progress!.clamp(0, 1),
-                minHeight: 5,
+                minHeight: 4,
                 backgroundColor: AppColors.background,
                 valueColor: AlwaysStoppedAnimation(iconColor),
               ),

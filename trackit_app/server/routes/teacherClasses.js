@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       classes: result.rows.map((row) => ({
-        id: row.id,
+        id: Number(row.id),
         program: row.program,
         section: row.section,
         academicYear: row.academic_year,
@@ -78,7 +78,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       success: true,
       class: {
-        id: row.id,
+        id: Number(row.id),
         program: row.program,
         section: row.section,
         academicYear: row.academic_year,

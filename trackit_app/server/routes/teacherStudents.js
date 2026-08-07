@@ -66,7 +66,7 @@ async function loadAssignedStudents(instructorId) {
 
 function toSummaryJson(student) {
   return {
-    id: student.id,
+    id: Number(student.id),
     name: student.name,
     avatarUrl: student.avatar_url,
     course: student.course,
@@ -125,7 +125,9 @@ router.get('/:id', async (req, res) => {
   try {
     const studentId = Number(req.params.id);
     const students = await loadAssignedStudents(req.instructorId);
-    const student = students.find((s) => s.id === studentId);
+    // s.id comes straight from a pg BIGINT column, which node-postgres
+    // returns as a string -- compare numerically, not by reference type.
+    const student = students.find((s) => Number(s.id) === studentId);
     if (!student) {
       return res
         .status(404)
@@ -146,7 +148,7 @@ router.get('/:id', async (req, res) => {
     res.json({
       success: true,
       student: {
-        id: student.id,
+        id: Number(student.id),
         name: student.name,
         email: student.email,
         course: student.course,
