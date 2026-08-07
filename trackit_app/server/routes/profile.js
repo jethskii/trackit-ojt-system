@@ -40,6 +40,7 @@ router.get('/', async (req, res) => {
       `SELECT sp.phone,
               sp.company_name, sp.company_address, sp.company_industry,
               sp.company_supervisor_name, sp.company_contact_number,
+              sp.company_latitude, sp.company_longitude,
               a.name AS adviser_name, a.position AS adviser_position,
               a.email AS adviser_email, a.phone AS adviser_phone
        FROM student_profiles sp
@@ -77,6 +78,8 @@ router.get('/', async (req, res) => {
               industry: profile.company_industry,
               supervisorName: profile.company_supervisor_name,
               contactNumber: profile.company_contact_number,
+              latitude: profile.company_latitude,
+              longitude: profile.company_longitude,
             }
           : null,
         // Derived from the same Confirm Company Details form (it collects
@@ -135,7 +138,8 @@ router.patch('/', async (req, res) => {
 // for the Home/Profile company card, independent of the HTE Directory.
 router.post('/company', async (req, res) => {
   try {
-    const { name, address, industry, supervisorName, contactNumber } = req.body;
+    const { name, address, industry, supervisorName, contactNumber, latitude, longitude } =
+      req.body;
     if (!name || !address || !industry || !supervisorName || !contactNumber) {
       return res
         .status(400)
@@ -145,13 +149,15 @@ router.post('/company', async (req, res) => {
     await pool.query(
       `INSERT INTO student_profiles
          (student_id, company_name, company_address, company_industry,
-          company_supervisor_name, company_contact_number, company_confirmed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
+          company_supervisor_name, company_contact_number,
+          company_latitude, company_longitude, company_confirmed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
        ON CONFLICT (student_id)
        DO UPDATE SET company_name = $2, company_address = $3, company_industry = $4,
          company_supervisor_name = $5, company_contact_number = $6,
+         company_latitude = $7, company_longitude = $8,
          company_confirmed_at = now(), updated_at = now()`,
-      [req.studentId, name, address, industry, supervisorName, contactNumber],
+      [req.studentId, name, address, industry, supervisorName, contactNumber, latitude ?? null, longitude ?? null],
     );
 
     res.json({ success: true });

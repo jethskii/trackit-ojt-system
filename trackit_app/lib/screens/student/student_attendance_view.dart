@@ -7,6 +7,7 @@ import '../../models/ojt_progress.dart';
 import '../../services/api_client.dart';
 import '../../services/attendance_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/location_helper.dart';
 import '../../widgets/common/app_header.dart';
 import '../../widgets/student/attendance_history_section.dart';
 import '../../widgets/student/attendance_quick_actions.dart';
@@ -19,12 +20,20 @@ class StudentAttendanceView extends StatefulWidget {
   final TodayAttendance initialAttendance;
   final List<AttendanceHistoryEntry> initialHistory;
 
+  /// Pushes the Correction Request Form and returns the success message
+  /// popped from it, if any (owned by AttendanceTabNavigator so the
+  /// bottom nav stays visible).
+  final Future<String?> Function() onOpenCorrectionRequest;
+  final VoidCallback onOpenHistory;
+
   const StudentAttendanceView({
     super.key,
     required this.service,
     required this.initialProgress,
     required this.initialAttendance,
     this.initialHistory = const [],
+    required this.onOpenCorrectionRequest,
+    required this.onOpenHistory,
   });
 
   @override
@@ -75,9 +84,16 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
+      final position = await getCurrentPosition();
       final updated = _attendance.hasClockedIn
-          ? await widget.service.clockOut()
-          : await widget.service.clockIn();
+          ? await widget.service.clockOut(
+              latitude: position.latitude,
+              longitude: position.longitude,
+            )
+          : await widget.service.clockIn(
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
       final progress = await widget.service.getProgress();
       if (!mounted) return;
       final timeLabel = DateFormat(
@@ -98,6 +114,11 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
           backgroundColor: AppColors.successGreenText,
         ),
       );
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.statRedIcon),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,15 +129,11 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
     }
   }
 
-  void _handleCorrectionRequest() {
+  Future<void> _handleCorrectionRequest() async {
+    final result = await widget.onOpenCorrectionRequest();
+    if (!mounted || result == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Correction Request Form is coming soon.')),
-    );
-  }
-
-  void _handleViewAllHistory() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Attendance History is coming soon.')),
+      SnackBar(content: Text(result), backgroundColor: AppColors.successGreenText),
     );
   }
 
@@ -161,7 +178,7 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 child: AttendanceHistorySection(
                   history: _history,
-                  onViewAll: _handleViewAllHistory,
+                  onViewAll: widget.onOpenHistory,
                 ),
               ),
             ],

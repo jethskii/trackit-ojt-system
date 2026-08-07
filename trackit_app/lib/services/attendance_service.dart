@@ -1,13 +1,32 @@
 import '../models/attendance.dart';
+import '../models/attendance_correction_request.dart';
 import '../models/ojt_progress.dart';
 import 'api_client.dart';
 
 abstract class AttendanceService {
   Future<TodayAttendance> getToday();
-  Future<TodayAttendance> clockIn();
-  Future<TodayAttendance> clockOut();
+
+  /// [latitude]/[longitude] are the student's current device position,
+  /// checked server-side against the company location saved via Confirm
+  /// Company Details (100m radius). Throws [ApiException] if they're too
+  /// far, or if the company location hasn't been set yet.
+  Future<TodayAttendance> clockIn({
+    required double latitude,
+    required double longitude,
+  });
+  Future<TodayAttendance> clockOut({
+    required double latitude,
+    required double longitude,
+  });
   Future<List<AttendanceHistoryEntry>> getHistory();
   Future<OjtProgress> getProgress();
+
+  Future<List<AttendanceCorrectionRequest>> getCorrectionRequests();
+  Future<AttendanceCorrectionRequest> submitCorrectionRequest({
+    required DateTime workDate,
+    required String reason,
+    String? attachmentFileName,
+  });
 }
 
 class HttpAttendanceService implements AttendanceService {
@@ -38,14 +57,26 @@ class HttpAttendanceService implements AttendanceService {
   }
 
   @override
-  Future<TodayAttendance> clockIn() async {
-    final response = await client.post('/api/attendance/clock-in');
+  Future<TodayAttendance> clockIn({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final response = await client.post(
+      '/api/attendance/clock-in',
+      body: {'latitude': latitude, 'longitude': longitude},
+    );
     return _parseAttendance(response['attendance'] as Map<String, dynamic>?);
   }
 
   @override
-  Future<TodayAttendance> clockOut() async {
-    final response = await client.post('/api/attendance/clock-out');
+  Future<TodayAttendance> clockOut({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final response = await client.post(
+      '/api/attendance/clock-out',
+      body: {'latitude': latitude, 'longitude': longitude},
+    );
     return _parseAttendance(response['attendance'] as Map<String, dynamic>?);
   }
 
@@ -94,5 +125,44 @@ class HttpAttendanceService implements AttendanceService {
     }
     final remainingWeeks = remainingHours / weeklyAverage;
     return DateTime.now().add(Duration(days: (remainingWeeks * 7).round()));
+  }
+
+  @override
+  Future<List<AttendanceCorrectionRequest>> getCorrectionRequests() async {
+    final response = await client.get('/api/attendance/corrections');
+    final rows = response['requests'] as List<dynamic>;
+    return rows
+        .map(
+          (row) => AttendanceCorrectionRequest.fromJson(
+            row as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<AttendanceCorrectionRequest> submitCorrectionRequest({
+    required DateTime workDate,
+    required String reason,
+    String? attachmentFileName,
+  }) async {
+    final response = await client.post(
+      '/api/attendance/corrections',
+      body: {
+        'workDate': _formatDate(workDate),
+        'reason': reason,
+        if (attachmentFileName != null) 'attachmentFileName': attachmentFileName,
+      },
+    );
+    return AttendanceCorrectionRequest.fromJson(
+      response['request'] as Map<String, dynamic>,
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 }

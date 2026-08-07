@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TRACKIT uses your location to confirm you're at your OJT company when you clock in or out, and to set your company's location the first time.</string>
 </dict>
 </plist>

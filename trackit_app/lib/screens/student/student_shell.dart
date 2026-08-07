@@ -8,10 +8,10 @@ import '../../services/attendance_service.dart';
 import '../../services/notifications_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
+import 'attendance_tab_navigator.dart';
 import 'documents/documents_tab_navigator.dart';
 import 'notifications_screen.dart';
 import 'profile/profile_tab_navigator.dart';
-import 'student_attendance_view.dart';
 import 'student_home_view.dart';
 
 class StudentShell extends StatefulWidget {
@@ -64,7 +64,7 @@ class _StudentShellState extends State<StudentShell> {
         progress: widget.initialProgress,
         announcements: widget.announcements,
       ),
-      StudentAttendanceView(
+      AttendanceTabNavigator(
         service: _attendanceService,
         initialProgress: widget.initialProgress,
         initialAttendance: widget.initialAttendance,

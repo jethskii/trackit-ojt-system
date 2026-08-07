@@ -18,6 +18,11 @@ class TodayAttendanceCard extends StatelessWidget {
         ? DateFormat('hh:mm a').format(attendance.clockOut!)
         : '--:--';
     final totalHoursLabel = '${_formatHours(attendance.totalHours)} Hrs';
+    final overallStatus = !attendance.hasClockedIn
+        ? _OverallStatus.unavailable
+        : (attendance.hasClockedOut
+              ? _OverallStatus.completed
+              : _OverallStatus.ongoing);
 
     return Container(
       width: double.infinity,
@@ -64,7 +69,12 @@ class TodayAttendanceCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _OverallStatusPill(status: overallStatus),
+          ),
+          const SizedBox(height: 8),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -212,6 +222,44 @@ class _AttendanceColumn extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+enum _OverallStatus { completed, ongoing, unavailable }
+
+class _OverallStatusPill extends StatelessWidget {
+  final _OverallStatus status;
+
+  const _OverallStatusPill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, bg, text) = switch (status) {
+      _OverallStatus.completed => (
+        'Completed',
+        AppColors.successGreenBg,
+        AppColors.successGreenText,
+      ),
+      _OverallStatus.ongoing => (
+        'Ongoing',
+        AppColors.statBlueBg,
+        AppColors.statBlueIcon,
+      ),
+      _OverallStatus.unavailable => (
+        'Unavailable',
+        AppColors.chipGrayBg,
+        AppColors.textSecondary,
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: text),
+      ),
     );
   }
 }
