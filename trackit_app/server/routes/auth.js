@@ -5,18 +5,18 @@ const { generateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// NOTE: this is straightforward email/password registration. The
-// capstone spec wants activation-code-gated registration against a
-// department master list, which needs Admin tooling that doesn't exist
-// yet -- that's a follow-up once the Admin module is built.
+// Students join a class by activation code rather than free-typing
+// course/section and picking an adviser separately -- one code sets
+// course, section, and adviser together, consistently. The code is
+// normally admin-generated; since there's no Admin module yet,
+// instructors create their own classes (see routes/teacherClasses.js).
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, course, section, studentNumber, yearLevel, adviserId } =
-      req.body;
-    if (!name || !email || !password || !course || !section) {
+    const { name, email, password, activationCode, studentNumber, yearLevel } = req.body;
+    if (!name || !email || !password || !activationCode) {
       return res.status(400).json({
         success: false,
-        message: 'name, email, password, course, and section are required.',
+        message: 'name, email, password, and activationCode are required.',
       });
     }
     if (password.length < 8) {
@@ -35,38 +35,38 @@ router.post('/register', async (req, res) => {
         .json({ success: false, message: 'An account with this email already exists.' });
     }
 
-    // Optional -- there's no Admin module yet to assign advisers, so the
-    // student picks a real registered instructor here instead. This is
-    // what makes the Teacher dashboard's "Assigned Students" real.
-    let validAdviserId = null;
-    if (adviserId) {
-      const adviserResult = await pool.query(
-        'SELECT id FROM advisers WHERE id = $1 AND password_hash IS NOT NULL',
-        [adviserId],
-      );
-      if (adviserResult.rows.length === 0) {
-        return res.status(400).json({ success: false, message: 'Invalid adviser selected.' });
-      }
-      validAdviserId = adviserResult.rows[0].id;
+    const classResult = await pool.query(
+      'SELECT * FROM instructor_classes WHERE activation_code = $1',
+      [activationCode.toString().trim().toUpperCase()],
+    );
+    if (classResult.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid activation code.' });
     }
+    const studentClass = classResult.rows[0];
 
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, email, course, section, avatar_url, required_hours`,
-      [name, normalizedEmail, passwordHash, course, section, studentNumber || null, yearLevel || null],
+      [
+        name,
+        normalizedEmail,
+        passwordHash,
+        studentClass.program,
+        studentClass.section,
+        studentNumber || null,
+        yearLevel || null,
+      ],
     );
     const student = result.rows[0];
 
-    if (validAdviserId) {
-      await pool.query(
-        `INSERT INTO student_profiles (student_id, adviser_id)
-         VALUES ($1, $2)
-         ON CONFLICT (student_id) DO UPDATE SET adviser_id = $2, updated_at = now()`,
-        [student.id, validAdviserId],
-      );
-    }
+    await pool.query(
+      `INSERT INTO student_profiles (student_id, adviser_id, class_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (student_id) DO UPDATE SET adviser_id = $2, class_id = $3, updated_at = now()`,
+      [student.id, studentClass.instructor_id, studentClass.id],
+    );
 
     const token = generateToken(student.id);
     res.status(201).json({ success: true, token, student });

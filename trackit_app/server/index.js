@@ -8,8 +8,10 @@ const pool = require('./db');
 
 const authRoutes = require('./routes/auth');
 const instructorAuthRoutes = require('./routes/instructorAuth');
-const advisersRoutes = require('./routes/advisers');
 const teacherDashboardRoutes = require('./routes/teacherDashboard');
+const teacherClassesRoutes = require('./routes/teacherClasses');
+const classesRoutes = require('./routes/classes');
+const teacherStudentsRoutes = require('./routes/teacherStudents');
 const attendanceRoutes = require('./routes/attendance');
 const hteCompaniesRoutes = require('./routes/hteCompanies');
 const requirementsRoutes = require('./routes/requirements');
@@ -55,8 +57,10 @@ app.get('/api/test-db', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/instructor-auth', instructorAuthRoutes);
-app.use('/api/advisers', advisersRoutes);
 app.use('/api/teacher/dashboard', teacherDashboardRoutes);
+app.use('/api/teacher/classes', teacherClassesRoutes);
+app.use('/api/teacher/students', teacherStudentsRoutes);
+app.use('/api/classes', classesRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/hte-companies', hteCompaniesRoutes);
 app.use('/api/requirements', requirementsRoutes);

@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../models/teacher_dashboard.dart';
+import '../../services/api_client.dart';
+import '../../services/teacher_classes_service.dart';
 import '../../services/teacher_dashboard_service.dart';
+import '../../services/teacher_students_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import 'teacher_home_dashboard_screen.dart';
 import 'teacher_placeholder_screen.dart';
 import 'teacher_profile_screen.dart';
+import 'teacher_students_tab_navigator.dart';
 
 class TeacherShell extends StatefulWidget {
+  final ApiClient client;
   final TeacherDashboardService dashboardService;
   final TeacherDashboard initialDashboard;
   final VoidCallback onLoggedOut;
 
   const TeacherShell({
     super.key,
+    required this.client,
     required this.dashboardService,
     required this.initialDashboard,
     required this.onLoggedOut,
@@ -26,6 +32,12 @@ class TeacherShell extends StatefulWidget {
 class _TeacherShellState extends State<TeacherShell> {
   int _navIndex = 0;
   late TeacherDashboard _dashboard;
+  late final TeacherClassesService _classesService = HttpTeacherClassesService(
+    widget.client,
+  );
+  late final TeacherStudentsService _studentsService = HttpTeacherStudentsService(
+    widget.client,
+  );
 
   @override
   void initState() {
@@ -47,9 +59,9 @@ class _TeacherShellState extends State<TeacherShell> {
         onOpenNotifications: () => setState(() => _navIndex = 3),
         onRefresh: _refreshDashboard,
       ),
-      const TeacherPlaceholderScreen(
-        title: 'Students',
-        icon: Icons.groups_outlined,
+      TeacherStudentsTabNavigator(
+        classesService: _classesService,
+        studentsService: _studentsService,
       ),
       const TeacherPlaceholderScreen(
         title: 'Document',

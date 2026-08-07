@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/ojt_progress.dart';
 import '../../utils/app_colors.dart';
+import '../common/ojt_progress_status_badge.dart';
 import 'ojt_stat_tile.dart';
 
 class OjtProgressCard extends StatelessWidget {
@@ -84,7 +85,7 @@ class OjtProgressCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                _StatusPill(status: progress.status),
+                OjtProgressStatusBadge(status: progress.status),
               ],
             ),
           const SizedBox(height: 14),
@@ -146,64 +147,6 @@ class OjtProgressCard extends StatelessWidget {
     return hours == hours.roundToDouble()
         ? hours.toInt().toString()
         : hours.toStringAsFixed(1);
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final OjtProgressStatus status;
-
-  const _StatusPill({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, icon, bg, text) = switch (status) {
-      OjtProgressStatus.aheadOfSchedule => (
-        'Ahead of Schedule',
-        Icons.trending_up,
-        AppColors.successGreenBg,
-        AppColors.successGreenText,
-      ),
-      OjtProgressStatus.onTrack => (
-        'On Track',
-        Icons.check_circle_outline,
-        AppColors.statBlueBg,
-        AppColors.statBlueIcon,
-      ),
-      OjtProgressStatus.behind => (
-        'Behind',
-        Icons.trending_down,
-        AppColors.statOrangeBg,
-        AppColors.statOrangeIcon,
-      ),
-      OjtProgressStatus.needsAttention => (
-        'Needs Attention',
-        Icons.warning_amber_rounded,
-        AppColors.statRedBg,
-        AppColors.statRedIcon,
-      ),
-      OjtProgressStatus.completed => (
-        'Completed',
-        Icons.check_circle,
-        AppColors.successGreenBg,
-        AppColors.successGreenText,
-      ),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: text),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: text),
-          ),
-        ],
-      ),
-    );
   }
 }
 

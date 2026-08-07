@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { computeProgressStatus } = require('../utils/progressStatus');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -165,50 +166,6 @@ router.get('/history', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to load attendance history.' });
   }
 });
-
-// Assumed OJT work pace (standard Mon-Fri, 8hr/day) used to derive an
-// "expected hours by now" baseline from ojt_start_date, since there's no
-// separate target-hours-per-week field. Only used for the status badge.
-const ASSUMED_HOURS_PER_WORKDAY = 8;
-
-// On Track/Behind/Needs Attention/Ahead of Schedule/Completed, compared
-// against the pace implied by ojt_start_date. Without a start date yet
-// (company not confirmed), defaults to 'onTrack' since there's no
-// baseline to fall behind on.
-function computeProgressStatus({
-  completedHours,
-  requiredHours,
-  ojtStartDate,
-  lastAttendanceDate,
-}) {
-  if (completedHours >= requiredHours) return 'completed';
-  if (!ojtStartDate) return 'onTrack';
-
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const now = new Date();
-  const start = new Date(ojtStartDate);
-  const daysElapsed = Math.max(0, Math.floor((now - start) / msPerDay));
-
-  const fullWeeksElapsed = Math.floor(daysElapsed / 7);
-  const remainderDays = Math.min(5, daysElapsed % 7);
-  const expectedWorkdays = fullWeeksElapsed * 5 + remainderDays;
-  const expectedHours = Math.min(
-    requiredHours,
-    expectedWorkdays * ASSUMED_HOURS_PER_WORKDAY,
-  );
-
-  if (expectedHours <= 0) return 'onTrack';
-
-  const paceRatio = completedHours / expectedHours;
-  const daysSinceLastAttendance = lastAttendanceDate
-    ? Math.floor((now - new Date(lastAttendanceDate)) / msPerDay)
-    : daysElapsed;
-
-  if (paceRatio < 0.7 || daysSinceLastAttendance >= 7) return 'needsAttention';
-  if (paceRatio < 0.9) return 'behind';
-  if (paceRatio > 1.1) return 'aheadOfSchedule';
-  return 'onTrack';
-}
 
 // Completed hours, days attended, and hour averages are computed here
 // from attendance_records rather than stored redundantly (see the

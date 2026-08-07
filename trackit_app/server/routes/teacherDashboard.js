@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireInstructorAuth } = require('../middleware/instructorAuth');
+const { computeStage } = require('../utils/progressStatus');
 
 const router = express.Router();
 router.use(requireInstructorAuth);
@@ -65,24 +66,18 @@ router.get('/', async (req, res) => {
       profileResult.rows.map((r) => [r.student_id, r.ojt_start_date != null]),
     );
 
-    // Lifecycle buckets derived from existing data (no extra schema):
-    // - completed: hit required hours
-    // - active: deployed (has an OJT Start Date) and has logged some hours
-    // - ready for deployment: deployed but hasn't started logging hours yet
-    // - (the remainder, uncounted here) still working through Requirements
     let activeStudents = 0;
     let readyForDeployment = 0;
     let completedStudents = 0;
     for (const student of students) {
-      const completedHours = hoursByStudent.get(student.id) || 0;
-      const started = startedByStudent.get(student.id) || false;
-      if (completedHours >= Number(student.required_hours)) {
-        completedStudents++;
-      } else if (started && completedHours > 0) {
-        activeStudents++;
-      } else if (started) {
-        readyForDeployment++;
-      }
+      const stage = computeStage({
+        completedHours: hoursByStudent.get(student.id) || 0,
+        requiredHours: Number(student.required_hours),
+        hasStarted: startedByStudent.get(student.id) || false,
+      });
+      if (stage === 'completed') completedStudents++;
+      else if (stage === 'active') activeStudents++;
+      else if (stage === 'readyForDeployment') readyForDeployment++;
     }
 
     const reqReviewResult = await pool.query(

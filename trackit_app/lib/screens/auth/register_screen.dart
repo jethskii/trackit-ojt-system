@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../models/class_lookup_result.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../utils/app_colors.dart';
@@ -22,44 +25,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _courseController = TextEditingController(text: 'BSIT');
-  final _sectionController = TextEditingController();
+  final _codeController = TextEditingController();
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _advisers = [];
-  bool _loadingAdvisers = true;
-  int? _selectedAdviserId;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadAdvisers();
-  }
-
-  Future<void> _loadAdvisers() async {
-    try {
-      final advisers = await widget.authService.getAdviserOptions();
-      if (!mounted) return;
-      setState(() {
-        _advisers = advisers;
-        _loadingAdvisers = false;
-      });
-    } catch (_) {
-      // Non-critical -- registration still works without an adviser
-      // picked; the dropdown just stays empty/"skip for now".
-      if (mounted) setState(() => _loadingAdvisers = false);
-    }
-  }
+  Timer? _lookupDebounce;
+  bool _lookingUpCode = false;
+  ClassLookupResult? _lookupResult;
+  String? _lookupError;
 
   @override
   void dispose() {
+    _lookupDebounce?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _courseController.dispose();
-    _sectionController.dispose();
+    _codeController.dispose();
     super.dispose();
+  }
+
+  void _onCodeChanged(String value) {
+    _lookupDebounce?.cancel();
+    setState(() {
+      _lookupResult = null;
+      _lookupError = null;
+    });
+    final code = value.trim();
+    if (code.length < 6) return;
+    _lookupDebounce = Timer(const Duration(milliseconds: 500), () => _lookupCode(code));
+  }
+
+  Future<void> _lookupCode(String code) async {
+    setState(() => _lookingUpCode = true);
+    try {
+      final result = await widget.authService.lookupClass(code);
+      if (!mounted || _codeController.text.trim() != code) return;
+      setState(() {
+        _lookupResult = result;
+        _lookupError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted || _codeController.text.trim() != code) return;
+      setState(() {
+        _lookupResult = null;
+        _lookupError = e.message;
+      });
+    } catch (_) {
+      // Network hiccup -- stay quiet here, the real validation happens
+      // again on submit anyway.
+    } finally {
+      if (mounted) setState(() => _lookingUpCode = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -73,9 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        course: _courseController.text.trim(),
-        section: _sectionController.text.trim(),
-        adviserId: _selectedAdviserId,
+        activationCode: _codeController.text.trim(),
       );
       if (!mounted) return;
       widget.onRegistered();
@@ -182,51 +197,82 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _courseController,
-                            decoration: const InputDecoration(labelText: 'Course'),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _sectionController,
-                            decoration: const InputDecoration(labelText: 'Section'),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<int?>(
-                      initialValue: _selectedAdviserId,
-                      decoration: const InputDecoration(
-                        labelText: 'OJT Adviser (optional)',
-                        helperText: 'You can pick this later if unsure.',
+                    TextFormField(
+                      controller: _codeController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Class Activation Code',
+                        helperText: 'Ask your OJT adviser for this code.',
+                        suffixIcon: _lookingUpCode
+                            ? const Padding(
+                                padding: EdgeInsets.all(14),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : null,
                       ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('Skip for now'),
-                        ),
-                        for (final adviser in _advisers)
-                          DropdownMenuItem<int?>(
-                            value: adviser['id'] as int,
-                            child: Text(adviser['name'] as String),
-                          ),
-                      ],
-                      onChanged: _loadingAdvisers
-                          ? null
-                          : (value) => setState(() => _selectedAdviserId = value),
+                      onChanged: _onCodeChanged,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'An activation code is required'
+                          : null,
                     ),
+                    if (_lookupResult != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.successGreenBg,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              size: 18,
+                              color: AppColors.successGreenText,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "You're joining ${_lookupResult!.program} - "
+                                '${_lookupResult!.section} '
+                                '(${_lookupResult!.academicYear}) under '
+                                '${_lookupResult!.instructorName}.',
+                                style: const TextStyle(
+                                  color: AppColors.successGreenText,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_lookupError != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.statRedBg,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _lookupError!,
+                          style: const TextStyle(
+                            color: AppColors.statRedIcon,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _submitting ? null : _submit,

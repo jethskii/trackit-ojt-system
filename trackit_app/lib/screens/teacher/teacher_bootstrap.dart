@@ -103,6 +103,7 @@ class _TeacherBootstrapState extends State<TeacherBootstrap> {
         }
 
         return TeacherShell(
+          client: widget.client,
           dashboardService: _dashboardService,
           initialDashboard: snapshot.data!,
           onLoggedOut: widget.onLoggedOut,

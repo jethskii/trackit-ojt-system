@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../models/class_lookup_result.dart';
 import 'api_client.dart';
 
 class AuthResult {
@@ -23,13 +24,27 @@ class AuthService {
     return token;
   }
 
+  /// Resolves an activation code to the class it joins, so the
+  /// registration form can show "You're joining: BSIT - 3F under Ma'am
+  /// Althea" before the student submits. Throws [ApiException] for an
+  /// invalid code.
+  Future<ClassLookupResult> lookupClass(String code) async {
+    final response = await client.get(
+      '/api/classes/lookup?code=${Uri.encodeQueryComponent(code)}',
+    );
+    return ClassLookupResult.fromJson(response['class'] as Map<String, dynamic>);
+  }
+
+  /// [activationCode] joins a class (see [lookupClass]) -- it's what sets
+  /// course, section, and adviser together, rather than the student
+  /// free-typing course/section or picking an adviser separately.
   Future<AuthResult> register({
     required String name,
     required String email,
     required String password,
-    required String course,
-    required String section,
-    int? adviserId,
+    required String activationCode,
+    String? studentNumber,
+    String? yearLevel,
   }) async {
     final response = await client.post(
       '/api/auth/register',
@@ -37,20 +52,12 @@ class AuthService {
         'name': name,
         'email': email,
         'password': password,
-        'course': course,
-        'section': section,
-        if (adviserId != null) 'adviserId': adviserId,
+        'activationCode': activationCode,
+        if (studentNumber != null) 'studentNumber': studentNumber,
+        if (yearLevel != null) 'yearLevel': yearLevel,
       },
     );
     return _persistAuthResponse(response);
-  }
-
-  /// Registered instructors a student can pick as their adviser at
-  /// registration -- there's no Admin module yet to assign one instead.
-  Future<List<Map<String, dynamic>>> getAdviserOptions() async {
-    final response = await client.get('/api/advisers');
-    final rows = response['advisers'] as List<dynamic>;
-    return rows.cast<Map<String, dynamic>>();
   }
 
   Future<AuthResult> login({required String email, required String password}) async {
