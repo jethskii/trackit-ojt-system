@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/teacher_student_summary.dart';
 import '../../utils/app_colors.dart';
-import '../common/ojt_progress_status_badge.dart';
+import '../common/student_activity_badge.dart';
 
 class TeacherStudentListTile extends StatelessWidget {
   final TeacherStudentSummary student;
@@ -28,7 +28,10 @@ class TeacherStudentListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (_, __, ___, barColor) = ojtProgressStatusStyle(student.progressStatus);
+    final (_, __, ___, barColor) = studentActivityStyle(
+      stage: student.stage,
+      progressStatus: student.progressStatus,
+    );
 
     return Material(
       color: AppColors.cardWhite,
@@ -77,7 +80,10 @@ class TeacherStudentListTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        OjtProgressStatusBadge(status: student.progressStatus),
+                        StudentActivityBadge(
+                          stage: student.stage,
+                          progressStatus: student.progressStatus,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),
