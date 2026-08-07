@@ -2,31 +2,13 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
+const { generateWeeks } = require('../utils/weekSlots');
 
 const router = express.Router();
 router.use(requireAuth);
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
 function dateOnly(date) {
   return date.toISOString().slice(0, 10);
-}
-
-// One slot per OJT week, from ojtStartDate through the current week --
-// purely a record/compilation, no link to attendance or hours.
-function generateWeeks(ojtStartDate) {
-  const start = new Date(ojtStartDate);
-  const now = new Date();
-  const daysElapsed = Math.max(0, Math.floor((now - start) / MS_PER_DAY));
-  const currentWeek = Math.floor(daysElapsed / 7) + 1;
-
-  const weeks = [];
-  for (let n = 1; n <= currentWeek; n++) {
-    const weekStart = new Date(start.getTime() + (n - 1) * 7 * MS_PER_DAY);
-    const weekEnd = new Date(weekStart.getTime() + 6 * MS_PER_DAY);
-    weeks.push({ weekNumber: n, weekStartDate: weekStart, weekEndDate: weekEnd });
-  }
-  return weeks;
 }
 
 async function attachAttachments(reports) {

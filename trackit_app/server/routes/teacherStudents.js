@@ -184,3 +184,7 @@ router.get('/:id', async (req, res) => {
 });
 
 module.exports = router;
+// Reused by teacherRequirements.js and teacherAttendance.js so the
+// assigned-students query (and its stage/progress computation) never
+// drifts across the Document module's screens.
+module.exports.loadAssignedStudents = loadAssignedStudents;
