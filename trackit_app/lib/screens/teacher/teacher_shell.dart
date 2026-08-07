@@ -11,7 +11,7 @@ import '../../widgets/common/app_bottom_nav.dart';
 import 'teacher_home_dashboard_screen.dart';
 import 'teacher_notifications_tab_navigator.dart';
 import 'teacher_placeholder_screen.dart';
-import 'teacher_profile_screen.dart';
+import 'teacher_profile_tab_navigator.dart';
 import 'teacher_students_tab_navigator.dart';
 
 class TeacherShell extends StatefulWidget {
@@ -85,8 +85,8 @@ class _TeacherShellState extends State<TeacherShell> {
         announcementsService: _announcementsService,
         classesService: _classesService,
       ),
-      TeacherProfileScreen(
-        instructorName: _dashboard.instructorName,
+      TeacherProfileTabNavigator(
+        client: widget.client,
         onLoggedOut: widget.onLoggedOut,
       ),
     ];

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -67,20 +68,36 @@ class ApiClient {
     return _decode(response);
   }
 
+  /// [contentType] matters: without it, MultipartFile.fromBytes defaults to
+  /// application/octet-stream, which the server's image-only fileFilter
+  /// (jpeg/png/webp) rejects even for a genuine image upload.
   Future<Map<String, dynamic>> postMultipart(
     String path, {
     required String fieldName,
     required List<int> fileBytes,
     required String fileName,
+    String contentType = 'image/jpeg',
   }) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
     if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
     request.files.add(
-      http.MultipartFile.fromBytes(fieldName, fileBytes, filename: fileName),
+      http.MultipartFile.fromBytes(
+        fieldName,
+        fileBytes,
+        filename: fileName,
+        contentType: MediaType.parse(contentType),
+      ),
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     return _decode(response);
+  }
+
+  /// Resolves a possibly-relative media path (e.g. "/uploads/avatars/x.jpg"
+  /// as returned by the upload endpoints) into an absolute URL a
+  /// NetworkImage can load. Already-absolute URLs pass through unchanged.
+  static String resolveUrl(String path) {
+    return path.startsWith('http') ? path : '$baseUrl$path';
   }
 
   Map<String, dynamic> _decode(http.Response response) {

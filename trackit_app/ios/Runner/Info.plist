@@ -68,5 +68,9 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TRACKIT uses your location to confirm you're at your OJT company when you clock in or out, and to set your company's location the first time.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TRACKIT needs access to your photo library so you can set a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>TRACKIT needs access to your camera so you can take a profile picture.</string>
 </dict>
 </plist>
