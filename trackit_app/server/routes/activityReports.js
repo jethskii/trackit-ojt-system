@@ -5,10 +5,14 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+// company_id (hte_companies) is only ever set by a future Admin module that
+// doesn't exist yet, so it's effectively always null -- fall back to the
+// student's self-reported company name (Confirm Company Details) instead.
 const SELECT_WITH_COMPANY = `
-  SELECT r.*, c.name AS company_name
+  SELECT r.*, COALESCE(c.name, sp.company_name) AS company_name
   FROM activity_reports r
   LEFT JOIN hte_companies c ON c.id = r.company_id
+  LEFT JOIN student_profiles sp ON sp.student_id = r.student_id
 `;
 
 async function attachAttachments(reports) {

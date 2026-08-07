@@ -20,7 +20,7 @@ class Student {
       name: profile.fullName,
       course: profile.course,
       section: profile.section,
-      companyName: profile.company?.name ?? 'Not assigned yet',
+      companyName: profile.company?.name ?? 'Not confirmed yet',
       avatarUrl: profile.avatarUrl,
     );
   }

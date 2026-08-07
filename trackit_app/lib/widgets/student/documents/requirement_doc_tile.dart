@@ -101,6 +101,37 @@ class RequirementDocTile extends StatelessWidget {
               ],
             ),
           ],
+          if (document.remarks != null && document.remarks!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.statRedBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.comment_outlined,
+                    size: 14,
+                    color: AppColors.statRedIcon,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Remarks: ${document.remarks}',
+                      style: const TextStyle(
+                        color: AppColors.statRedIcon,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,

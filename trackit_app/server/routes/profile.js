@@ -26,14 +26,9 @@ const upload = multer({
 router.get('/', async (req, res) => {
   try {
     const studentResult = await pool.query(
-      `SELECT s.name, s.email, s.course, s.section, s.student_number, s.year_level,
-              s.avatar_url, s.company_id,
-              c.name AS company_name, c.industry, c.address AS company_address,
-              c.email AS company_email, c.phone AS company_phone, c.website,
-              c.description AS company_description, c.available_positions, c.available_slots
-       FROM students s
-       LEFT JOIN hte_companies c ON c.id = s.company_id
-       WHERE s.id = $1`,
+      `SELECT name, email, course, section, student_number, year_level, avatar_url
+       FROM students
+       WHERE id = $1`,
       [req.studentId],
     );
     if (studentResult.rows.length === 0) {
@@ -43,13 +38,12 @@ router.get('/', async (req, res) => {
 
     const profileResult = await pool.query(
       `SELECT sp.phone,
+              sp.company_name, sp.company_address, sp.company_industry,
+              sp.company_supervisor_name, sp.company_contact_number,
               a.name AS adviser_name, a.position AS adviser_position,
-              a.email AS adviser_email, a.phone AS adviser_phone,
-              sup.name AS supervisor_name, sup.position AS supervisor_position,
-              sup.email AS supervisor_email, sup.phone AS supervisor_phone
+              a.email AS adviser_email, a.phone AS adviser_phone
        FROM student_profiles sp
        LEFT JOIN advisers a ON a.id = sp.adviser_id
-       LEFT JOIN supervisors sup ON sup.id = sp.supervisor_id
        WHERE sp.student_id = $1`,
       [req.studentId],
     );
@@ -74,28 +68,26 @@ router.get('/', async (req, res) => {
               phone: profile.adviser_phone,
             }
           : null,
-        // snake_case keys here match /api/hte-companies's raw row shape so
-        // HteCompany.fromJson can parse both without special-casing.
-        company: student.company_id
+        // Self-reported via the Confirm Company Details form -- independent
+        // of the HTE Directory. Matches CompanyDetails.fromJson's shape.
+        company: profile && profile.company_name
           ? {
-              id: student.company_id,
-              name: student.company_name,
-              industry: student.industry,
-              address: student.company_address,
-              email: student.company_email,
-              phone: student.company_phone,
-              website: student.website,
-              description: student.company_description,
-              available_positions: student.available_positions,
-              available_slots: student.available_slots,
+              name: profile.company_name,
+              address: profile.company_address,
+              industry: profile.company_industry,
+              supervisorName: profile.company_supervisor_name,
+              contactNumber: profile.company_contact_number,
             }
           : null,
-        supervisor: profile && profile.supervisor_name
+        // Derived from the same Confirm Company Details form (it collects
+        // the supervisor's name and contact number together with the
+        // company info) rather than a separate supervisors-table FK.
+        supervisor: profile && profile.company_supervisor_name
           ? {
-              name: profile.supervisor_name,
-              role: profile.supervisor_position,
-              email: profile.supervisor_email,
-              phone: profile.supervisor_phone,
+              name: profile.company_supervisor_name,
+              role: 'HR Supervisor',
+              email: '',
+              phone: profile.company_contact_number,
             }
           : null,
       },
@@ -135,6 +127,37 @@ router.patch('/', async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ success: false, message: 'Failed to update profile.' });
+  }
+});
+
+// Confirm Company Details: manual, self-reported entry shown once all
+// Startup Requirements phases are complete. This is the source of truth
+// for the Home/Profile company card, independent of the HTE Directory.
+router.post('/company', async (req, res) => {
+  try {
+    const { name, address, industry, supervisorName, contactNumber } = req.body;
+    if (!name || !address || !industry || !supervisorName || !contactNumber) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'All company detail fields are required.' });
+    }
+
+    await pool.query(
+      `INSERT INTO student_profiles
+         (student_id, company_name, company_address, company_industry,
+          company_supervisor_name, company_contact_number, company_confirmed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       ON CONFLICT (student_id)
+       DO UPDATE SET company_name = $2, company_address = $3, company_industry = $4,
+         company_supervisor_name = $5, company_contact_number = $6,
+         company_confirmed_at = now(), updated_at = now()`,
+      [req.studentId, name, address, industry, supervisorName, contactNumber],
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Submit company details error:', error);
+    res.status(500).json({ success: false, message: 'Failed to save company details.' });
   }
 });
 

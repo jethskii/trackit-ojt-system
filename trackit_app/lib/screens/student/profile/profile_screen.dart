@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../models/company_details.dart';
 import '../../../models/student_profile.dart';
 import '../../../services/student_profile_service.dart';
 import '../../../utils/app_colors.dart';
@@ -127,6 +128,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showCompanyDetail(CompanyDetails company) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(company.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              company.industry,
+              style: const TextStyle(color: AppColors.accentOrange),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primaryMaroon),
+                const SizedBox(width: 8),
+                Expanded(child: Text(company.address)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person_outline, size: 16, color: AppColors.primaryMaroon),
+                const SizedBox(width: 8),
+                Expanded(child: Text(company.supervisorName)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.phone_outlined, size: 16, color: AppColors.primaryMaroon),
+                const SizedBox(width: 8),
+                Expanded(child: Text(company.contactNumber)),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmLogout() {
     showDialog(
       context: context,
@@ -185,12 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                         onTapCompany: _profile!.company == null
                             ? null
-                            : () => _showContactDetail(
-                                _profile!.company!.name,
-                                'Assigned OJT Company',
-                                _profile!.company!.email,
-                                _profile!.company!.phone,
-                              ),
+                            : () => _showCompanyDetail(_profile!.company!),
                         onTapSupervisor: _profile!.supervisor == null
                             ? null
                             : () => _showContactDetail(
@@ -432,12 +478,12 @@ class _ProfileCard extends StatelessWidget {
           profile.company == null
               ? const MissingContactRow(
                   message:
-                      'You have not been assigned to a Host Training '
-                      'Establishment yet.',
+                      'Confirm your company details after completing the '
+                      'OJT Requirements to see them here.',
                 )
               : ProfileContactRow(
                   name: profile.company!.name,
-                  subtitle: 'Assigned OJT Company',
+                  subtitle: 'Your OJT Company',
                   onTap: onTapCompany,
                 ),
           const Divider(height: 1),

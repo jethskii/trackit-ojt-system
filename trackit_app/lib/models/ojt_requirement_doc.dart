@@ -9,6 +9,11 @@ class OjtRequirementDoc {
   final bool hasTemplate;
   final String? uploadedFileName;
 
+  /// Instructor feedback explaining a rejection/re-upload request. There's
+  /// no Instructor module yet to actually write these, so this is always
+  /// null for now -- the field and its UI are ready for when that exists.
+  final String? remarks;
+
   const OjtRequirementDoc({
     required this.id,
     required this.name,
@@ -17,6 +22,7 @@ class OjtRequirementDoc {
     this.deadline,
     this.hasTemplate = false,
     this.uploadedFileName,
+    this.remarks,
   });
 
   factory OjtRequirementDoc.fromJson(Map<String, dynamic> json) {
@@ -33,6 +39,7 @@ class OjtRequirementDoc {
           : null,
       hasTemplate: json['hasTemplate'] as bool? ?? false,
       uploadedFileName: json['uploadedFileName'] as String?,
+      remarks: json['remarks'] as String?,
     );
   }
 
@@ -48,6 +55,7 @@ class OjtRequirementDoc {
       deadline: deadline,
       hasTemplate: hasTemplate,
       uploadedFileName: uploadedFileName ?? this.uploadedFileName,
+      remarks: remarks,
     );
   }
 }

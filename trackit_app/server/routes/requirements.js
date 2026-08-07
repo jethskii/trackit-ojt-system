@@ -45,6 +45,7 @@ router.get('/', async (req, res) => {
             status: submission ? submission.status : 'missing',
             uploadedFileName: submission ? submission.uploaded_file_name : null,
             deadline: submission ? submission.deadline : null,
+            remarks: submission ? submission.remarks : null,
           };
         });
       const fulfilled = documents.every(

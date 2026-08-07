@@ -179,6 +179,14 @@ List<OjtRequirementPhase> _buildInitialPhases() {
           status: RequirementDocStatus.missing,
         ),
         OjtRequirementDoc(
+          id: 'registration-enrollment-form',
+          name: 'Registration/Enrollment Form',
+          description:
+              'Proof of enrollment for the current term, obtained from the '
+              'registrar.',
+          status: RequirementDocStatus.missing,
+        ),
+        OjtRequirementDoc(
           id: 'insurance',
           name: 'Insurance',
           description: 'Proof of student insurance coverage.',

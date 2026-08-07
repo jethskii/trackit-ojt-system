@@ -1,4 +1,4 @@
-import '../models/hte_company.dart';
+import '../models/company_details.dart';
 import '../models/staff_contact.dart';
 import '../models/student_profile.dart';
 import 'api_client.dart';
@@ -11,6 +11,12 @@ abstract class StudentProfileService {
   /// the rest of the app has a single place to swap in a real
   /// implementation later.
   Future<StudentProfile> updateAvatar(String avatarUrl);
+
+  /// Saves the student's self-reported company details (Confirm Company
+  /// Details step). Also sets [StudentProfile.supervisor], since that form
+  /// collects the supervisor's name and contact number together with the
+  /// company info.
+  Future<StudentProfile> submitCompanyDetails(CompanyDetails details);
 }
 
 class MockStudentProfileService implements StudentProfileService {
@@ -29,26 +35,9 @@ class MockStudentProfileService implements StudentProfileService {
       email: 'gawin.caskey@dlsp.edu.ph',
       phone: '+63 917 555 0101',
     ),
-    company: HteCompany(
-      id: 'hte-1',
-      name: 'GMMTV Company Limited',
-      industry: 'Media & Entertainment',
-      address: 'Bangkok, Thailand',
-      availablePositions: 3,
-      email: 'careers@gmmtv.com',
-      phone: '+66 2 111 2222',
-      website: 'https://gmmtv.com',
-      description:
-          'A leading media production company specializing in digital '
-          'content, broadcasting, and artist management.',
-      availableSlots: 5,
-    ),
-    supervisor: StaffContact(
-      name: 'Ayden Sng',
-      role: 'HR Supervisor',
-      email: 'ayden.sng@gmmtv.com',
-      phone: '+66 2 111 2233',
-    ),
+    // Null until the student completes the Confirm Company Details step.
+    company: null,
+    supervisor: null,
   );
 
   @override
@@ -57,6 +46,12 @@ class MockStudentProfileService implements StudentProfileService {
   @override
   Future<StudentProfile> updateAvatar(String avatarUrl) async {
     _profile = _profile.copyWith(avatarUrl: avatarUrl);
+    return _profile;
+  }
+
+  @override
+  Future<StudentProfile> submitCompanyDetails(CompanyDetails details) async {
+    _profile = _profile.withCompanyDetails(details);
     return _profile;
   }
 }
@@ -78,6 +73,12 @@ class HttpStudentProfileService implements StudentProfileService {
     // to produce real bytes for POST /api/profile/avatar (a multipart
     // upload) to receive. Once that's wired up, this should take the
     // picked image's bytes instead of a pre-existing URL string.
+    return getProfile();
+  }
+
+  @override
+  Future<StudentProfile> submitCompanyDetails(CompanyDetails details) async {
+    await client.post('/api/profile/company', body: details.toJson());
     return getProfile();
   }
 }

@@ -4,6 +4,7 @@ import '../../../services/activity_reports_service.dart';
 import '../../../services/api_client.dart';
 import '../../../services/hte_directory_service.dart';
 import '../../../services/ojt_requirements_service.dart';
+import '../../../services/student_profile_service.dart';
 import 'activity_reports_screen.dart';
 import 'documents_hub_screen.dart';
 import 'hte_directory_screen.dart';
@@ -37,6 +38,9 @@ class _DocumentsTabNavigatorState extends State<DocumentsTabNavigator> {
   );
   late final ActivityReportsService _reportsService =
       HttpActivityReportsService(widget.client);
+  late final StudentProfileService _profileService = HttpStudentProfileService(
+    widget.client,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +62,10 @@ class _DocumentsTabNavigatorState extends State<DocumentsTabNavigator> {
               page = HteDirectoryScreen(service: _hteService);
               break;
             case '/ojt-requirements':
-              page = StartupRequirementsScreen(service: _ojtService);
+              page = StartupRequirementsScreen(
+                service: _ojtService,
+                profileService: _profileService,
+              );
               break;
             case '/activity-reports':
               page = ActivityReportsScreen(

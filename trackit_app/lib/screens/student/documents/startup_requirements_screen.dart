@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import '../../../models/company_details.dart';
 import '../../../models/ojt_requirement_phase.dart';
 import '../../../services/ojt_requirements_service.dart';
+import '../../../services/student_profile_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
 import '../../../widgets/common/info_reminder_card.dart';
 import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/phase_card.dart';
+import 'confirm_company_details_screen.dart';
 import 'phase_requirements_screen.dart';
 
 class StartupRequirementsScreen extends StatefulWidget {
   final OjtRequirementsService service;
+  final StudentProfileService profileService;
 
-  const StartupRequirementsScreen({super.key, required this.service});
+  const StartupRequirementsScreen({
+    super.key,
+    required this.service,
+    required this.profileService,
+  });
 
   @override
   State<StartupRequirementsScreen> createState() =>
@@ -21,6 +29,7 @@ class StartupRequirementsScreen extends StatefulWidget {
 class _StartupRequirementsScreenState
     extends State<StartupRequirementsScreen> {
   List<OjtRequirementPhase> _phases = [];
+  CompanyDetails? _companyDetails;
   bool _loading = true;
 
   @override
@@ -31,9 +40,11 @@ class _StartupRequirementsScreenState
 
   Future<void> _load() async {
     final phases = await widget.service.getPhases();
+    final profile = await widget.profileService.getProfile();
     if (!mounted) return;
     setState(() {
       _phases = phases;
+      _companyDetails = profile.company;
       _loading = false;
     });
   }
@@ -48,6 +59,27 @@ class _StartupRequirementsScreenState
       ),
     );
     _load();
+  }
+
+  Future<void> _openConfirmCompanyDetails() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => ConfirmCompanyDetailsScreen(
+          service: widget.profileService,
+          existingDetails: _companyDetails,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _load();
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result),
+          backgroundColor: AppColors.successGreenText,
+        ),
+      );
+    }
   }
 
   double get _progress {
@@ -121,7 +153,10 @@ class _StartupRequirementsScreenState
                             ),
                             const SizedBox(height: 12),
                             _allCompleted
-                                ? const _FinalizationCard()
+                                ? _FinalizationCard(
+                                    companyDetails: _companyDetails,
+                                    onTap: _openConfirmCompanyDetails,
+                                  )
                                 : const _PendingConfirmationCard(),
                           ],
                         ),
@@ -222,10 +257,14 @@ class _PendingConfirmationCard extends StatelessWidget {
 }
 
 class _FinalizationCard extends StatelessWidget {
-  const _FinalizationCard();
+  final CompanyDetails? companyDetails;
+  final VoidCallback onTap;
+
+  const _FinalizationCard({required this.companyDetails, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final isConfirmed = companyDetails != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -235,36 +274,37 @@ class _FinalizationCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.check_circle,
+          Icon(
+            isConfirmed ? Icons.verified : Icons.check_circle,
             color: AppColors.successGreenText,
             size: 32,
           ),
           const SizedBox(height: 8),
           const Text(
-            'Account Details Finalization',
+            'Confirm Company Details',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: AppColors.successGreenText,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Requirements Completed. Start Finalizing your Account Information.',
+          Text(
+            isConfirmed
+                ? 'Company details confirmed for ${companyDetails!.name}. '
+                    'You can update them anytime.'
+                : 'Requirements completed. Confirm your OJT company details '
+                    'to finish setting up your account.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.successGreenText, fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.successGreenText,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Account Finalization page is coming soon.'),
-                  ),
-                );
-              },
+              onPressed: onTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.successGreenText,
                 foregroundColor: Colors.white,
@@ -272,7 +312,7 @@ class _FinalizationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Continue'),
+              child: Text(isConfirmed ? 'Edit Details' : 'Continue'),
             ),
           ),
         ],
