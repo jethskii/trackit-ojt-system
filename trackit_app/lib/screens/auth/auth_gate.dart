@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
+import '../../services/instructor_auth_service.dart';
+import '../../services/session_role.dart';
 import '../../utils/app_colors.dart';
 import '../student/student_bootstrap.dart';
+import '../teacher/teacher_bootstrap.dart';
 import 'login_screen.dart';
 
 /// Root of the app below MaterialApp: decides between the login flow and
-/// the authenticated Student Module based on whether a stored token
-/// exists, and owns the single ApiClient/AuthService instance shared by
-/// everything underneath.
+/// the authenticated Student or Teacher module based on the stored
+/// session role, and owns the single ApiClient/auth service instances
+/// shared by everything underneath.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -19,8 +22,11 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   final ApiClient _client = ApiClient();
   late final AuthService _authService = AuthService(_client);
+  late final InstructorAuthService _instructorAuthService =
+      InstructorAuthService(_client);
+  final SessionRoleStore _roleStore = SessionRoleStore();
   bool _checking = true;
-  bool _loggedIn = false;
+  SessionRole? _activeRole;
 
   @override
   void initState() {
@@ -29,21 +35,33 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkSession() async {
-    final token = await _authService.loadStoredToken();
+    final role = await _roleStore.load();
+    SessionRole? resolvedRole;
+    if (role == SessionRole.student) {
+      final token = await _authService.loadStoredToken();
+      if (token != null) resolvedRole = SessionRole.student;
+    } else if (role == SessionRole.instructor) {
+      final token = await _instructorAuthService.loadStoredToken();
+      if (token != null) resolvedRole = SessionRole.instructor;
+    }
     if (!mounted) return;
     setState(() {
-      _loggedIn = token != null;
+      _activeRole = resolvedRole;
       _checking = false;
     });
   }
 
-  void _handleLoggedIn() {
-    setState(() => _loggedIn = true);
+  Future<void> _handleLoggedIn(SessionRole role) async {
+    await _roleStore.save(role);
+    if (!mounted) return;
+    setState(() => _activeRole = role);
   }
 
   Future<void> _handleLoggedOut() async {
     await _authService.logout();
-    if (mounted) setState(() => _loggedIn = false);
+    await _instructorAuthService.logout();
+    await _roleStore.clear();
+    if (mounted) setState(() => _activeRole = null);
   }
 
   @override
@@ -57,10 +75,17 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    if (!_loggedIn) {
-      return LoginScreen(authService: _authService, onLoggedIn: _handleLoggedIn);
+    switch (_activeRole) {
+      case SessionRole.student:
+        return StudentBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
+      case SessionRole.instructor:
+        return TeacherBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
+      case null:
+        return LoginScreen(
+          authService: _authService,
+          instructorAuthService: _instructorAuthService,
+          onLoggedIn: _handleLoggedIn,
+        );
     }
-
-    return StudentBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
   }
 }

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
+import '../../services/instructor_auth_service.dart';
+import '../../services/session_role.dart';
 import '../../utils/app_colors.dart';
+import '../teacher/instructor_register_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthService authService;
-  final VoidCallback onLoggedIn;
+  final InstructorAuthService instructorAuthService;
+  final ValueChanged<SessionRole> onLoggedIn;
 
   const LoginScreen({
     super.key,
     required this.authService,
+    required this.instructorAuthService,
     required this.onLoggedIn,
   });
 
@@ -25,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  SessionRole _role = SessionRole.student;
 
   @override
   void dispose() {
@@ -40,12 +46,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      await widget.authService.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      if (_role == SessionRole.student) {
+        await widget.authService.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      } else {
+        await widget.instructorAuthService.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
       if (!mounted) return;
-      widget.onLoggedIn();
+      widget.onLoggedIn(_role);
     } on ApiException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (_) {
@@ -54,6 +67,28 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _openRegister() {
+    if (_role == SessionRole.student) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => RegisterScreen(
+            authService: widget.authService,
+            onRegistered: () => widget.onLoggedIn(SessionRole.student),
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => InstructorRegisterScreen(
+            instructorAuthService: widget.instructorAuthService,
+            onRegistered: () => widget.onLoggedIn(SessionRole.instructor),
+          ),
+        ),
+      );
     }
   }
 
@@ -106,7 +141,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Log in to continue tracking your OJT.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    SegmentedButton<SessionRole>(
+                      segments: const [
+                        ButtonSegment(
+                          value: SessionRole.student,
+                          label: Text('Student'),
+                          icon: Icon(Icons.school_outlined),
+                        ),
+                        ButtonSegment(
+                          value: SessionRole.instructor,
+                          label: Text('Instructor'),
+                          icon: Icon(Icons.person_outline),
+                        ),
+                      ],
+                      selected: {_role},
+                      onSelectionChanged: (selection) => setState(() {
+                        _role = selection.first;
+                        _errorMessage = null;
+                      }),
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: AppColors.primaryMaroon,
+                        selectedForegroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     if (_errorMessage != null) ...[
                       Container(
                         width: double.infinity,
@@ -180,16 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => RegisterScreen(
-                                authService: widget.authService,
-                                onRegistered: widget.onLoggedIn,
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _openRegister,
                         child: const Text("Don't have an account? Register"),
                       ),
                     ),

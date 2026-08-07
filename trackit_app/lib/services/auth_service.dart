@@ -29,6 +29,7 @@ class AuthService {
     required String password,
     required String course,
     required String section,
+    int? adviserId,
   }) async {
     final response = await client.post(
       '/api/auth/register',
@@ -38,9 +39,18 @@ class AuthService {
         'password': password,
         'course': course,
         'section': section,
+        if (adviserId != null) 'adviserId': adviserId,
       },
     );
     return _persistAuthResponse(response);
+  }
+
+  /// Registered instructors a student can pick as their adviser at
+  /// registration -- there's no Admin module yet to assign one instead.
+  Future<List<Map<String, dynamic>>> getAdviserOptions() async {
+    final response = await client.get('/api/advisers');
+    final rows = response['advisers'] as List<dynamic>;
+    return rows.cast<Map<String, dynamic>>();
   }
 
   Future<AuthResult> login({required String email, required String password}) async {

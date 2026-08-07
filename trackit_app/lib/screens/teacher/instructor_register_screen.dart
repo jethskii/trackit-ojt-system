@@ -1,64 +1,39 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
-import '../../services/auth_service.dart';
+import '../../services/instructor_auth_service.dart';
 import '../../utils/app_colors.dart';
 
-class RegisterScreen extends StatefulWidget {
-  final AuthService authService;
+class InstructorRegisterScreen extends StatefulWidget {
+  final InstructorAuthService instructorAuthService;
   final VoidCallback onRegistered;
 
-  const RegisterScreen({
+  const InstructorRegisterScreen({
     super.key,
-    required this.authService,
+    required this.instructorAuthService,
     required this.onRegistered,
   });
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<InstructorRegisterScreen> createState() =>
+      _InstructorRegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _courseController = TextEditingController(text: 'BSIT');
-  final _sectionController = TextEditingController();
+  final _positionController = TextEditingController(text: 'OJT Adviser');
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _advisers = [];
-  bool _loadingAdvisers = true;
-  int? _selectedAdviserId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAdvisers();
-  }
-
-  Future<void> _loadAdvisers() async {
-    try {
-      final advisers = await widget.authService.getAdviserOptions();
-      if (!mounted) return;
-      setState(() {
-        _advisers = advisers;
-        _loadingAdvisers = false;
-      });
-    } catch (_) {
-      // Non-critical -- registration still works without an adviser
-      // picked; the dropdown just stays empty/"skip for now".
-      if (mounted) setState(() => _loadingAdvisers = false);
-    }
-  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _courseController.dispose();
-    _sectionController.dispose();
+    _positionController.dispose();
     super.dispose();
   }
 
@@ -69,13 +44,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
     try {
-      await widget.authService.register(
+      await widget.instructorAuthService.register(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        course: _courseController.text.trim(),
-        section: _sectionController.text.trim(),
-        adviserId: _selectedAdviserId,
+        position: _positionController.text.trim(),
       );
       if (!mounted) return;
       widget.onRegistered();
@@ -112,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Create Account',
+                      'Instructor Account',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -121,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Register to start tracking your OJT.',
+                      'Register to review your assigned students\' OJT progress.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
@@ -182,50 +155,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _courseController,
-                            decoration: const InputDecoration(labelText: 'Course'),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _sectionController,
-                            decoration: const InputDecoration(labelText: 'Section'),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<int?>(
-                      initialValue: _selectedAdviserId,
-                      decoration: const InputDecoration(
-                        labelText: 'OJT Adviser (optional)',
-                        helperText: 'You can pick this later if unsure.',
-                      ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('Skip for now'),
-                        ),
-                        for (final adviser in _advisers)
-                          DropdownMenuItem<int?>(
-                            value: adviser['id'] as int,
-                            child: Text(adviser['name'] as String),
-                          ),
-                      ],
-                      onChanged: _loadingAdvisers
-                          ? null
-                          : (value) => setState(() => _selectedAdviserId = value),
+                    TextFormField(
+                      controller: _positionController,
+                      decoration: const InputDecoration(labelText: 'Position'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(

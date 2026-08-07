@@ -11,7 +11,8 @@ const router = express.Router();
 // yet -- that's a follow-up once the Admin module is built.
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, course, section, studentNumber, yearLevel } = req.body;
+    const { name, email, password, course, section, studentNumber, yearLevel, adviserId } =
+      req.body;
     if (!name || !email || !password || !course || !section) {
       return res.status(400).json({
         success: false,
@@ -34,6 +35,21 @@ router.post('/register', async (req, res) => {
         .json({ success: false, message: 'An account with this email already exists.' });
     }
 
+    // Optional -- there's no Admin module yet to assign advisers, so the
+    // student picks a real registered instructor here instead. This is
+    // what makes the Teacher dashboard's "Assigned Students" real.
+    let validAdviserId = null;
+    if (adviserId) {
+      const adviserResult = await pool.query(
+        'SELECT id FROM advisers WHERE id = $1 AND password_hash IS NOT NULL',
+        [adviserId],
+      );
+      if (adviserResult.rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Invalid adviser selected.' });
+      }
+      validAdviserId = adviserResult.rows[0].id;
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level)
@@ -42,6 +58,16 @@ router.post('/register', async (req, res) => {
       [name, normalizedEmail, passwordHash, course, section, studentNumber || null, yearLevel || null],
     );
     const student = result.rows[0];
+
+    if (validAdviserId) {
+      await pool.query(
+        `INSERT INTO student_profiles (student_id, adviser_id)
+         VALUES ($1, $2)
+         ON CONFLICT (student_id) DO UPDATE SET adviser_id = $2, updated_at = now()`,
+        [student.id, validAdviserId],
+      );
+    }
+
     const token = generateToken(student.id);
     res.status(201).json({ success: true, token, student });
   } catch (error) {
