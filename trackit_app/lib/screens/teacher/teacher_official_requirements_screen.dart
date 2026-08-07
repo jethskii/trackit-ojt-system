@@ -14,10 +14,15 @@ class TeacherOfficialRequirementsScreen extends StatefulWidget {
   final TeacherRequirementsService service;
   final ValueChanged<int> onOpenStudent;
 
+  /// Lets a deep link (e.g. Home Dashboard's "Requirements to Review")
+  /// open this screen pre-filtered instead of always starting on "All".
+  final String? initialStatusFilter;
+
   const TeacherOfficialRequirementsScreen({
     super.key,
     required this.service,
     required this.onOpenStudent,
+    this.initialStatusFilter,
   });
 
   @override
@@ -30,7 +35,7 @@ class _TeacherOfficialRequirementsScreenState
   List<TeacherRequirementStudentSummary> _students = [];
   bool _loading = true;
   String _query = '';
-  String? _statusFilter; // null | 'needsReview' | 'completed' | 'pending'
+  late String? _statusFilter = widget.initialStatusFilter; // null | 'needsReview' | 'completed' | 'pending'
 
   @override
   void initState() {

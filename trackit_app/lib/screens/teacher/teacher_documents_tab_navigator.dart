@@ -20,10 +20,17 @@ class TeacherDocumentsTabNavigator extends StatefulWidget {
   final ApiClient client;
   final TeacherClassesService classesService;
 
+  /// Owned by TeacherShell so Home Dashboard's "Needs your Attention" taps
+  /// can deep-link straight into a screen here (e.g. Official Requirements
+  /// filtered to Needs Review, or Attendance Requests) instead of just
+  /// switching tabs to this navigator's root.
+  final GlobalKey<NavigatorState>? navigatorKey;
+
   const TeacherDocumentsTabNavigator({
     super.key,
     required this.client,
     required this.classesService,
+    this.navigatorKey,
   });
 
   @override
@@ -33,7 +40,8 @@ class TeacherDocumentsTabNavigator extends StatefulWidget {
 
 class _TeacherDocumentsTabNavigatorState
     extends State<TeacherDocumentsTabNavigator> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late final GlobalKey<NavigatorState> _navigatorKey =
+      widget.navigatorKey ?? GlobalKey<NavigatorState>();
   late final TeacherRequirementsService _requirementsService =
       HttpTeacherRequirementsService(widget.client);
   late final TeacherAttendanceService _attendanceService =
@@ -66,6 +74,7 @@ class _TeacherDocumentsTabNavigatorState
             case '/official-requirements':
               page = TeacherOfficialRequirementsScreen(
                 service: _requirementsService,
+                initialStatusFilter: settings.arguments as String?,
                 onOpenStudent: (studentId) => _navigatorKey.currentState
                     ?.pushNamed('/official-requirements/$studentId'),
               );

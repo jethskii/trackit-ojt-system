@@ -16,6 +16,9 @@ class TeacherHomeDashboardScreen extends StatefulWidget {
   final TeacherNotificationsService notificationsService;
   final TeacherAnnouncementsService announcementsService;
   final VoidCallback onOpenNotifications;
+  final VoidCallback onOpenDocumentsHub;
+  final VoidCallback onOpenRequirementsReview;
+  final VoidCallback onOpenAttendanceCorrections;
   final Future<void> Function() onRefresh;
 
   const TeacherHomeDashboardScreen({
@@ -24,6 +27,9 @@ class TeacherHomeDashboardScreen extends StatefulWidget {
     required this.notificationsService,
     required this.announcementsService,
     required this.onOpenNotifications,
+    required this.onOpenDocumentsHub,
+    required this.onOpenRequirementsReview,
+    required this.onOpenAttendanceCorrections,
     required this.onRefresh,
   });
 
@@ -56,12 +62,6 @@ class _TeacherHomeDashboardScreenState
 
   Future<void> _refresh() async {
     await Future.wait([widget.onRefresh(), _loadAnnouncements()]);
-  }
-
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature is coming soon.')),
-    );
   }
 
   @override
@@ -170,7 +170,7 @@ class _TeacherHomeDashboardScreenState
                       ),
                     ),
                     InkWell(
-                      onTap: () => _showComingSoon(context, 'This list'),
+                      onTap: widget.onOpenDocumentsHub,
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -203,7 +203,7 @@ class _TeacherHomeDashboardScreenState
                       backgroundColor: AppColors.statOrangeBg,
                       label: 'Requirements to Review',
                       count: dashboard.requirementsToReview,
-                      onTap: () => _showComingSoon(context, 'Requirements review'),
+                      onTap: widget.onOpenRequirementsReview,
                     ),
                     AttentionItem(
                       icon: Icons.edit_document,
@@ -211,7 +211,7 @@ class _TeacherHomeDashboardScreenState
                       backgroundColor: AppColors.statBlueBg,
                       label: 'Attendance Corrections',
                       count: dashboard.attendanceCorrections,
-                      onTap: () => _showComingSoon(context, 'Attendance corrections review'),
+                      onTap: widget.onOpenAttendanceCorrections,
                     ),
                   ],
                 ),

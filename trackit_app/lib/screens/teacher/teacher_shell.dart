@@ -35,6 +35,10 @@ class TeacherShell extends StatefulWidget {
 class _TeacherShellState extends State<TeacherShell> {
   int _navIndex = 0;
   late TeacherDashboard _dashboard;
+  // Owned here (not inside TeacherDocumentsTabNavigator) so Home
+  // Dashboard's "Needs your Attention" taps can deep-link straight into a
+  // Document tab screen instead of just switching to its root.
+  final GlobalKey<NavigatorState> _documentsNavigatorKey = GlobalKey<NavigatorState>();
   late final TeacherClassesService _classesService = HttpTeacherClassesService(
     widget.client,
   );
@@ -62,6 +66,20 @@ class _TeacherShellState extends State<TeacherShell> {
     setState(() => _dashboard = dashboard);
   }
 
+  // IndexedStack keeps every tab's widget subtree built at all times, so
+  // the Documents nested Navigator already exists even while another tab
+  // is showing -- no need to wait a frame before pushing onto it.
+  void _openRequirementsReview() {
+    setState(() => _navIndex = 2);
+    _documentsNavigatorKey.currentState
+        ?.pushNamed('/official-requirements', arguments: 'needsReview');
+  }
+
+  void _openAttendanceCorrections() {
+    setState(() => _navIndex = 2);
+    _documentsNavigatorKey.currentState?.pushNamed('/attendance-requests');
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -70,6 +88,9 @@ class _TeacherShellState extends State<TeacherShell> {
         notificationsService: _notificationsService,
         announcementsService: _announcementsService,
         onOpenNotifications: () => setState(() => _navIndex = 3),
+        onOpenDocumentsHub: () => setState(() => _navIndex = 2),
+        onOpenRequirementsReview: _openRequirementsReview,
+        onOpenAttendanceCorrections: _openAttendanceCorrections,
         onRefresh: _refreshDashboard,
       ),
       TeacherStudentsTabNavigator(
@@ -79,6 +100,7 @@ class _TeacherShellState extends State<TeacherShell> {
       TeacherDocumentsTabNavigator(
         client: widget.client,
         classesService: _classesService,
+        navigatorKey: _documentsNavigatorKey,
       ),
       TeacherNotificationsTabNavigator(
         notificationsService: _notificationsService,
