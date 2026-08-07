@@ -6,12 +6,14 @@ class DocumentsHubScreen extends StatelessWidget {
   final VoidCallback onOpenHteDirectory;
   final VoidCallback onOpenOjtRequirements;
   final VoidCallback onOpenActivityReports;
+  final VoidCallback onOpenAdditionalRequirements;
 
   const DocumentsHubScreen({
     super.key,
     required this.onOpenHteDirectory,
     required this.onOpenOjtRequirements,
     required this.onOpenActivityReports,
+    required this.onOpenAdditionalRequirements,
   });
 
   @override
@@ -39,6 +41,11 @@ class DocumentsHubScreen extends StatelessWidget {
                   MaroonActionCard(
                     title: 'OJT Requirements',
                     onTap: onOpenOjtRequirements,
+                  ),
+                  const SizedBox(height: 16),
+                  MaroonActionCard(
+                    title: 'Additional Requirements',
+                    onTap: onOpenAdditionalRequirements,
                   ),
                   const SizedBox(height: 16),
                   MaroonActionCard(

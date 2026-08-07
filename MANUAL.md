@@ -54,11 +54,15 @@ trackit-ojt-system/
         ├── routes/               # one file per resource
         └── sql/
             ├── schema.sql                                  # run first
-            ├── schema_notifications_profile.sql             # run second
-            ├── migration_company_details_remarks.sql        # run third
+            ├── schema_notifications_profile.sql
+            ├── migration_company_details_remarks.sql
             ├── migration_attendance_geofence_corrections.sql
             ├── migration_ojt_start_date.sql
-            └── migration_weekly_accomplishment_reports.sql  # run last
+            ├── migration_weekly_accomplishment_reports.sql
+            ├── migration_instructor_auth_and_dashboard.sql
+            ├── migration_instructor_classes.sql
+            ├── migration_teacher_notifications_announcements.sql
+            └── migration_teacher_documents.sql              # run last
 ```
 
 Every feature follows the same pattern: a Dart **model**, an abstract
@@ -86,6 +90,10 @@ Requires `trackit_app/.env` (see `trackit_app/.env.example`) with
 4. `migration_attendance_geofence_corrections.sql`
 5. `migration_ojt_start_date.sql`
 6. `migration_weekly_accomplishment_reports.sql`
+7. `migration_instructor_auth_and_dashboard.sql`
+8. `migration_instructor_classes.sql`
+9. `migration_teacher_notifications_announcements.sql`
+10. `migration_teacher_documents.sql`
 
 All migrations are non-destructive (`ADD COLUMN IF NOT EXISTS`, etc.) and
 safe to re-run.

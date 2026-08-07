@@ -8,9 +8,9 @@ import '../../services/teacher_notifications_service.dart';
 import '../../services/teacher_students_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
+import 'teacher_documents_tab_navigator.dart';
 import 'teacher_home_dashboard_screen.dart';
 import 'teacher_notifications_tab_navigator.dart';
-import 'teacher_placeholder_screen.dart';
 import 'teacher_profile_tab_navigator.dart';
 import 'teacher_students_tab_navigator.dart';
 
@@ -76,9 +76,9 @@ class _TeacherShellState extends State<TeacherShell> {
         classesService: _classesService,
         studentsService: _studentsService,
       ),
-      const TeacherPlaceholderScreen(
-        title: 'Document',
-        icon: Icons.description_outlined,
+      TeacherDocumentsTabNavigator(
+        client: widget.client,
+        classesService: _classesService,
       ),
       TeacherNotificationsTabNavigator(
         notificationsService: _notificationsService,
