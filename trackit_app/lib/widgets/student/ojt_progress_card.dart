@@ -41,50 +41,52 @@ class OjtProgressCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Completed',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+          if (progress.status == OjtProgressStatus.completed)
+            _CompletedBanner(totalHoursAttended: progress.completedHours)
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Completed',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '${progress.completedHours}',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryMaroon,
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${progress.completedHours}',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryMaroon,
+                              ),
                             ),
-                          ),
-                          TextSpan(
-                            text:
-                                ' / ${progress.totalHours} Hours',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
+                            TextSpan(
+                              text: ' / ${progress.totalHours} Hours',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (progress.aheadOfSchedule) _AheadOfSchedulePill(),
-            ],
-          ),
+                _StatusPill(status: progress.status),
+              ],
+            ),
           const SizedBox(height: 14),
           _ProgressBar(ratio: progress.progressRatio),
           const SizedBox(height: 20),
@@ -147,30 +149,90 @@ class OjtProgressCard extends StatelessWidget {
   }
 }
 
-class _AheadOfSchedulePill extends StatelessWidget {
+class _StatusPill extends StatelessWidget {
+  final OjtProgressStatus status;
+
+  const _StatusPill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon, bg, text) = switch (status) {
+      OjtProgressStatus.aheadOfSchedule => (
+        'Ahead of Schedule',
+        Icons.trending_up,
+        AppColors.successGreenBg,
+        AppColors.successGreenText,
+      ),
+      OjtProgressStatus.onTrack => (
+        'On Track',
+        Icons.check_circle_outline,
+        AppColors.statBlueBg,
+        AppColors.statBlueIcon,
+      ),
+      OjtProgressStatus.behind => (
+        'Behind',
+        Icons.trending_down,
+        AppColors.statOrangeBg,
+        AppColors.statOrangeIcon,
+      ),
+      OjtProgressStatus.needsAttention => (
+        'Needs Attention',
+        Icons.warning_amber_rounded,
+        AppColors.statRedBg,
+        AppColors.statRedIcon,
+      ),
+      OjtProgressStatus.completed => (
+        'Completed',
+        Icons.check_circle,
+        AppColors.successGreenBg,
+        AppColors.successGreenText,
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: text),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: text),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletedBanner extends StatelessWidget {
+  final int totalHoursAttended;
+
+  const _CompletedBanner({required this.totalHoursAttended});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.successGreenBg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Icon(
-            Icons.trending_up,
-            size: 14,
-            color: AppColors.successGreenText,
-          ),
-          SizedBox(width: 4),
-          Text(
-            'Ahead of Schedule',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.successGreenText,
+          const Icon(Icons.check_circle, color: AppColors.successGreenText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Completed — Total Hours Attended: $totalHoursAttended hrs',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.successGreenText,
+              ),
             ),
           ),
         ],

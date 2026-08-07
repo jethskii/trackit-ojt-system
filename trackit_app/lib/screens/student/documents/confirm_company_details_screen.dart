@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../models/company_details.dart';
 import '../../../services/student_profile_service.dart';
 import '../../../utils/app_colors.dart';
@@ -38,6 +39,7 @@ class _ConfirmCompanyDetailsScreenState
   bool _capturingLocation = false;
   double? _latitude;
   double? _longitude;
+  late DateTime _ojtStartDate;
 
   @override
   void initState() {
@@ -56,6 +58,7 @@ class _ConfirmCompanyDetailsScreenState
     );
     _latitude = existing?.latitude;
     _longitude = existing?.longitude;
+    _ojtStartDate = existing?.ojtStartDate ?? DateTime.now();
   }
 
   @override
@@ -98,6 +101,16 @@ class _ConfirmCompanyDetailsScreenState
     }
   }
 
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _ojtStartDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _ojtStartDate = picked);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,6 +130,7 @@ class _ConfirmCompanyDetailsScreenState
       contactNumber: _contactController.text.trim(),
       latitude: _latitude,
       longitude: _longitude,
+      ojtStartDate: _ojtStartDate,
     );
     await widget.service.submitCompanyDetails(details);
     if (!mounted) return;
@@ -194,6 +208,21 @@ class _ConfirmCompanyDetailsScreenState
                     validator: (v) => (v == null || v.trim().isEmpty)
                         ? 'Contact number is required'
                         : null,
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: _pickStartDate,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'OJT Start Date',
+                        helperText:
+                            'Used to track whether your attendance pace is '
+                            'on schedule.',
+                      ),
+                      child: Text(
+                        DateFormat('MMM d, yyyy').format(_ojtStartDate),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _LocationSection(

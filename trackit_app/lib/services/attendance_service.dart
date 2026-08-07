@@ -108,7 +108,7 @@ class HttpAttendanceService implements AttendanceService {
       estimatedCompletion: _estimateCompletion(json),
       averageHoursPerDay: (json['averageHoursPerDay'] as num).toDouble(),
       weeklyAverageHours: (json['weeklyAverageHours'] as num).toDouble(),
-      aheadOfSchedule: json['aheadOfSchedule'] as bool,
+      status: ojtProgressStatusFromDb(json['status'] as String?),
     );
   }
 

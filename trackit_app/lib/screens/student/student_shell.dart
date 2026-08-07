@@ -20,7 +20,6 @@ class StudentShell extends StatefulWidget {
   final OjtProgress initialProgress;
   final TodayAttendance initialAttendance;
   final List<AttendanceHistoryEntry> initialHistory;
-  final List<String> announcements;
   final VoidCallback onLoggedOut;
 
   const StudentShell({
@@ -30,7 +29,6 @@ class StudentShell extends StatefulWidget {
     required this.initialProgress,
     required this.initialAttendance,
     this.initialHistory = const [],
-    this.announcements = const [],
     required this.onLoggedOut,
   });
 
@@ -45,6 +43,15 @@ class _StudentShellState extends State<StudentShell> {
   );
   late final NotificationsService _notificationsService =
       HttpNotificationsService(widget.client);
+
+  @override
+  void initState() {
+    super.initState();
+    // Loaded once here (rather than only inside NotificationsScreen) so
+    // the Home tab's announcement preview has data even if the student
+    // never opens the Notifications tab.
+    _notificationsService.load();
+  }
 
   void _goToTab(NotificationTarget target) {
     final index = switch (target) {
@@ -62,7 +69,9 @@ class _StudentShellState extends State<StudentShell> {
       StudentHomeView(
         student: widget.student,
         progress: widget.initialProgress,
-        announcements: widget.announcements,
+        notificationsService: _notificationsService,
+        onNavigateTo: _goToTab,
+        onOpenNotifications: () => setState(() => _navIndex = 3),
       ),
       AttendanceTabNavigator(
         service: _attendanceService,

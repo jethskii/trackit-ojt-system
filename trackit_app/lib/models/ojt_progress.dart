@@ -1,3 +1,23 @@
+/// How the student's actual attendance pace compares to the expected pace
+/// for their OJT start date, computed server-side. [completed] takes
+/// priority over the others once completedHours reaches totalHours.
+enum OjtProgressStatus { onTrack, behind, needsAttention, aheadOfSchedule, completed }
+
+OjtProgressStatus ojtProgressStatusFromDb(String? value) {
+  switch (value) {
+    case 'behind':
+      return OjtProgressStatus.behind;
+    case 'needsAttention':
+      return OjtProgressStatus.needsAttention;
+    case 'aheadOfSchedule':
+      return OjtProgressStatus.aheadOfSchedule;
+    case 'completed':
+      return OjtProgressStatus.completed;
+    default:
+      return OjtProgressStatus.onTrack;
+  }
+}
+
 class OjtProgress {
   final int completedHours;
   final int totalHours;
@@ -5,7 +25,7 @@ class OjtProgress {
   final DateTime estimatedCompletion;
   final double averageHoursPerDay;
   final double weeklyAverageHours;
-  final bool aheadOfSchedule;
+  final OjtProgressStatus status;
 
   const OjtProgress({
     required this.completedHours,
@@ -14,7 +34,7 @@ class OjtProgress {
     required this.estimatedCompletion,
     required this.averageHoursPerDay,
     required this.weeklyAverageHours,
-    required this.aheadOfSchedule,
+    required this.status,
   });
 
   double get progressRatio {

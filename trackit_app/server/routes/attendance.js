@@ -166,6 +166,50 @@ router.get('/history', async (req, res) => {
   }
 });
 
+// Assumed OJT work pace (standard Mon-Fri, 8hr/day) used to derive an
+// "expected hours by now" baseline from ojt_start_date, since there's no
+// separate target-hours-per-week field. Only used for the status badge.
+const ASSUMED_HOURS_PER_WORKDAY = 8;
+
+// On Track/Behind/Needs Attention/Ahead of Schedule/Completed, compared
+// against the pace implied by ojt_start_date. Without a start date yet
+// (company not confirmed), defaults to 'onTrack' since there's no
+// baseline to fall behind on.
+function computeProgressStatus({
+  completedHours,
+  requiredHours,
+  ojtStartDate,
+  lastAttendanceDate,
+}) {
+  if (completedHours >= requiredHours) return 'completed';
+  if (!ojtStartDate) return 'onTrack';
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const now = new Date();
+  const start = new Date(ojtStartDate);
+  const daysElapsed = Math.max(0, Math.floor((now - start) / msPerDay));
+
+  const fullWeeksElapsed = Math.floor(daysElapsed / 7);
+  const remainderDays = Math.min(5, daysElapsed % 7);
+  const expectedWorkdays = fullWeeksElapsed * 5 + remainderDays;
+  const expectedHours = Math.min(
+    requiredHours,
+    expectedWorkdays * ASSUMED_HOURS_PER_WORKDAY,
+  );
+
+  if (expectedHours <= 0) return 'onTrack';
+
+  const paceRatio = completedHours / expectedHours;
+  const daysSinceLastAttendance = lastAttendanceDate
+    ? Math.floor((now - new Date(lastAttendanceDate)) / msPerDay)
+    : daysElapsed;
+
+  if (paceRatio < 0.7 || daysSinceLastAttendance >= 7) return 'needsAttention';
+  if (paceRatio < 0.9) return 'behind';
+  if (paceRatio > 1.1) return 'aheadOfSchedule';
+  return 'onTrack';
+}
+
 // Completed hours, days attended, and hour averages are computed here
 // from attendance_records rather than stored redundantly (see the
 // comment in schema.sql).
@@ -178,19 +222,21 @@ router.get('/progress', async (req, res) => {
     if (studentResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
-    const requiredHours = studentResult.rows[0].required_hours;
+    const requiredHours = Number(studentResult.rows[0].required_hours);
 
     const totals = await pool.query(
       `SELECT
          COUNT(*) FILTER (WHERE clock_out IS NOT NULL) AS days_attended,
          COALESCE(SUM(EXTRACT(EPOCH FROM (clock_out - clock_in)) / 3600.0)
-           FILTER (WHERE clock_out IS NOT NULL), 0) AS completed_hours
+           FILTER (WHERE clock_out IS NOT NULL), 0) AS completed_hours,
+         MAX(work_date) FILTER (WHERE clock_out IS NOT NULL) AS last_attendance_date
        FROM attendance_records
        WHERE student_id = $1`,
       [req.studentId],
     );
     const daysAttended = Number(totals.rows[0].days_attended);
     const completedHours = Number(totals.rows[0].completed_hours);
+    const lastAttendanceDate = totals.rows[0].last_attendance_date;
 
     const weekly = await pool.query(
       `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (clock_out - clock_in)) / 3600.0), 0) AS weekly_hours
@@ -202,17 +248,28 @@ router.get('/progress', async (req, res) => {
     const weeklyAverageHours = Number(weekly.rows[0].weekly_hours);
     const averageHoursPerDay = daysAttended > 0 ? completedHours / daysAttended : 0;
 
+    const profileResult = await pool.query(
+      'SELECT ojt_start_date FROM student_profiles WHERE student_id = $1',
+      [req.studentId],
+    );
+    const ojtStartDate = profileResult.rows[0]?.ojt_start_date ?? null;
+
+    const status = computeProgressStatus({
+      completedHours,
+      requiredHours,
+      ojtStartDate,
+      lastAttendanceDate,
+    });
+
     res.json({
       success: true,
       progress: {
         completedHours,
-        totalHours: Number(requiredHours),
+        totalHours: requiredHours,
         daysAttended,
         averageHoursPerDay,
         weeklyAverageHours,
-        // Simplified heuristic pending an OJT start-date field to compute
-        // a real expected-pace comparison.
-        aheadOfSchedule: completedHours > 0,
+        status,
       },
     });
   } catch (error) {

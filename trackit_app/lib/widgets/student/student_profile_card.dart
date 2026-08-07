@@ -77,17 +77,44 @@ class StudentProfileCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.background,
+              color: student.hasCompany
+                  ? AppColors.background
+                  : AppColors.chipGrayBg,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              student.companyName,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (student.hasCompany) ...[
+                  const CircleAvatar(
+                    radius: 11,
+                    backgroundColor: AppColors.primaryMaroon,
+                    child: Icon(Icons.business, size: 12, color: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                ] else ...[
+                  Icon(
+                    Icons.hourglass_empty,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    student.companyName,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: student.hasCompany
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

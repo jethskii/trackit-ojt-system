@@ -4,6 +4,7 @@ class Student {
   final String name;
   final String course;
   final String section;
+  final bool hasCompany;
   final String companyName;
   final String? avatarUrl;
 
@@ -11,6 +12,7 @@ class Student {
     required this.name,
     required this.course,
     required this.section,
+    required this.hasCompany,
     required this.companyName,
     this.avatarUrl,
   });
@@ -20,7 +22,8 @@ class Student {
       name: profile.fullName,
       course: profile.course,
       section: profile.section,
-      companyName: profile.company?.name ?? 'Not confirmed yet',
+      hasCompany: profile.company != null,
+      companyName: profile.company?.name ?? 'Not yet deployed',
       avatarUrl: profile.avatarUrl,
     );
   }

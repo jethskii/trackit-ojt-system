@@ -16,6 +16,11 @@ class CompanyDetails {
   final double? latitude;
   final double? longitude;
 
+  /// When the student began their OJT at this company, self-reported.
+  /// Drives the OJT Hours Progress status badge (On Track/Behind/etc.) by
+  /// giving it a real timeline to compare actual pace against.
+  final DateTime? ojtStartDate;
+
   bool get hasLocation => latitude != null && longitude != null;
 
   const CompanyDetails({
@@ -26,6 +31,7 @@ class CompanyDetails {
     required this.contactNumber,
     this.latitude,
     this.longitude,
+    this.ojtStartDate,
   });
 
   factory CompanyDetails.fromJson(Map<String, dynamic> json) {
@@ -37,6 +43,9 @@ class CompanyDetails {
       contactNumber: json['contactNumber'] as String,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      ojtStartDate: json['ojtStartDate'] != null
+          ? DateTime.parse(json['ojtStartDate'] as String)
+          : null,
     );
   }
 
@@ -48,20 +57,6 @@ class CompanyDetails {
     'contactNumber': contactNumber,
     'latitude': latitude,
     'longitude': longitude,
+    'ojtStartDate': ojtStartDate?.toIso8601String(),
   };
-
-  CompanyDetails copyWithLocation({
-    required double latitude,
-    required double longitude,
-  }) {
-    return CompanyDetails(
-      name: name,
-      address: address,
-      industry: industry,
-      supervisorName: supervisorName,
-      contactNumber: contactNumber,
-      latitude: latitude,
-      longitude: longitude,
-    );
-  }
 }
