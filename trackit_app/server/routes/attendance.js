@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { computeProgressStatus } = require('../utils/progressStatus');
+const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -282,6 +283,23 @@ router.post('/corrections', async (req, res) => {
        RETURNING *`,
       [req.studentId, workDate, reason, attachmentFileName || null],
     );
+
+    try {
+      const studentResult = await pool.query('SELECT name FROM students WHERE id = $1', [
+        req.studentId,
+      ]);
+      const studentName = studentResult.rows[0]?.name;
+      if (studentName) {
+        await notifyInstructorForStudent(req.studentId, {
+          title: 'Attendance Correction Requested',
+          message: `${studentName} requested an attendance correction for ${workDate}.`,
+          relatedModule: 'attendance',
+        });
+      }
+    } catch (notifyError) {
+      console.error('Notify instructor of correction request error:', notifyError);
+    }
+
     res.status(201).json({ success: true, request: toCorrectionJson(result.rows[0]) });
   } catch (error) {
     console.error('Submit correction request error:', error);

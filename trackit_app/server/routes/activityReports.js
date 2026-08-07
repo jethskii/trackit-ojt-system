@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -155,6 +156,22 @@ router.post('/:weekNumber/submit', async (req, res) => {
           [reportId, fileName],
         );
       }
+    }
+
+    try {
+      const studentResult = await pool.query('SELECT name FROM students WHERE id = $1', [
+        req.studentId,
+      ]);
+      const studentName = studentResult.rows[0]?.name;
+      if (studentName) {
+        await notifyInstructorForStudent(req.studentId, {
+          title: 'Weekly Report Submitted',
+          message: `${studentName} submitted the Week ${weekNumber} accomplishment report.`,
+          relatedModule: 'reports',
+        });
+      }
+    } catch (notifyError) {
+      console.error('Notify instructor of weekly report error:', notifyError);
     }
 
     res.json({ success: true });

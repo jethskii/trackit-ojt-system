@@ -1,22 +1,62 @@
 import 'package:flutter/material.dart';
+import '../../models/announcement.dart';
 import '../../models/teacher_dashboard.dart';
+import '../../services/teacher_announcements_service.dart';
+import '../../services/teacher_notifications_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/empty_state_view.dart';
+import '../../widgets/teacher/announcement_card.dart';
 import '../../widgets/teacher/attention_list_card.dart';
+import '../../widgets/teacher/instructor_notification_tile.dart';
 import '../../widgets/teacher/teacher_dashboard_header.dart';
 import '../../widgets/teacher/teacher_summary_tile.dart';
 
-class TeacherHomeDashboardScreen extends StatelessWidget {
+class TeacherHomeDashboardScreen extends StatefulWidget {
   final TeacherDashboard dashboard;
+  final TeacherNotificationsService notificationsService;
+  final TeacherAnnouncementsService announcementsService;
   final VoidCallback onOpenNotifications;
   final Future<void> Function() onRefresh;
 
   const TeacherHomeDashboardScreen({
     super.key,
     required this.dashboard,
+    required this.notificationsService,
+    required this.announcementsService,
     required this.onOpenNotifications,
     required this.onRefresh,
   });
+
+  @override
+  State<TeacherHomeDashboardScreen> createState() =>
+      _TeacherHomeDashboardScreenState();
+}
+
+class _TeacherHomeDashboardScreenState
+    extends State<TeacherHomeDashboardScreen> {
+  static const int _previewCount = 3;
+
+  List<Announcement> _announcements = [];
+  bool _loadingAnnouncements = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnnouncements();
+  }
+
+  Future<void> _loadAnnouncements() async {
+    final announcements = await widget.announcementsService.getAnnouncements();
+    if (!mounted) return;
+    setState(() {
+      _announcements = announcements;
+      _loadingAnnouncements = false;
+    });
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([widget.onRefresh(), _loadAnnouncements()]);
+  }
 
   void _showComingSoon(BuildContext context, String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -26,12 +66,13 @@ class TeacherHomeDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dashboard = widget.dashboard;
     return SafeArea(
       top: false,
       bottom: false,
       child: RefreshIndicator(
         color: AppColors.primaryMaroon,
-        onRefresh: onRefresh,
+        onRefresh: _refresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
@@ -180,39 +221,72 @@ class TeacherHomeDashboardScreen extends StatelessWidget {
                 child: _PreviewSectionHeader(
                   icon: Icons.campaign,
                   title: 'Recent Announcements',
-                  onViewAll: () => _showComingSoon(context, 'Announcements'),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: _PreviewCard(
-                  child: EmptyStateView(
-                    icon: Icons.campaign_outlined,
-                    title: 'No announcements yet',
-                    message: 'Announcements you post will appear here.',
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                  ),
+                  onViewAll: widget.onOpenNotifications,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _loadingAnnouncements
+                    ? const _PreviewCard(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      )
+                    : _announcements.isEmpty
+                        ? const _PreviewCard(
+                            child: EmptyStateView(
+                              icon: Icons.campaign_outlined,
+                              title: 'No announcements yet',
+                              message: 'Announcements you post will appear here.',
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              for (final announcement
+                                  in _announcements.take(_previewCount))
+                                AnnouncementCard(announcement: announcement),
+                            ],
+                          ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: _PreviewSectionHeader(
                   icon: Icons.notifications,
                   title: 'Recent Notifications',
-                  onViewAll: onOpenNotifications,
+                  onViewAll: widget.onOpenNotifications,
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: _PreviewCard(
-                  child: EmptyStateView(
-                    icon: Icons.notifications_none,
-                    title: 'No notifications yet',
-                    message:
-                        'Updates about your assigned students will appear '
-                        'here.',
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                  ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: ListenableBuilder(
+                  listenable: widget.notificationsService,
+                  builder: (context, _) {
+                    final notifications = widget.notificationsService.notifications;
+                    if (notifications.isEmpty) {
+                      return const _PreviewCard(
+                        child: EmptyStateView(
+                          icon: Icons.notifications_none,
+                          title: 'No notifications yet',
+                          message:
+                              'Updates about your assigned students will '
+                              'appear here.',
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                        ),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final notification in notifications.take(_previewCount))
+                          InstructorNotificationTile(
+                            notification: notification,
+                            onTap: () =>
+                                widget.notificationsService.markAsRead(notification.id),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

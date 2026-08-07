@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -103,6 +104,24 @@ router.post('/:templateId/submit', upload.single('file'), async (req, res) => {
        RETURNING *`,
       [req.studentId, templateId, fileName, fileUrl],
     );
+
+    try {
+      const [studentResult, templateResult] = await Promise.all([
+        pool.query('SELECT name FROM students WHERE id = $1', [req.studentId]),
+        pool.query('SELECT name FROM ojt_requirement_templates WHERE id = $1', [templateId]),
+      ]);
+      const studentName = studentResult.rows[0]?.name;
+      const templateName = templateResult.rows[0]?.name;
+      if (studentName && templateName) {
+        await notifyInstructorForStudent(req.studentId, {
+          title: 'Requirement Submitted',
+          message: `${studentName} submitted "${templateName}" for review.`,
+          relatedModule: 'requirements',
+        });
+      }
+    } catch (notifyError) {
+      console.error('Notify instructor of requirement submission error:', notifyError);
+    }
 
     res.json({ success: true, submission: result.rows[0] });
   } catch (error) {

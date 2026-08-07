@@ -68,6 +68,24 @@ router.post('/register', async (req, res) => {
       [student.id, studentClass.instructor_id, studentClass.id],
     );
 
+    // Non-blocking -- a notification failure shouldn't fail registration,
+    // which has already succeeded by this point.
+    try {
+      await pool.query(
+        `INSERT INTO instructor_notifications
+           (instructor_id, category, title, message, related_module, related_student_id)
+         VALUES ($1, 'student', $2, $3, 'students', $4)`,
+        [
+          studentClass.instructor_id,
+          'New Student Joined',
+          `${student.name} joined ${studentClass.program} - ${studentClass.section}.`,
+          student.id,
+        ],
+      );
+    } catch (notifyError) {
+      console.error('Notify instructor of new student error:', notifyError);
+    }
+
     const token = generateToken(student.id);
     res.status(201).json({ success: true, token, student });
   } catch (error) {
