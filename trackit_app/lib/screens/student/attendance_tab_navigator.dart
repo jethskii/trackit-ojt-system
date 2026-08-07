@@ -66,7 +66,11 @@ class _AttendanceTabNavigatorState extends State<AttendanceTabNavigator> {
                     _navigatorKey.currentState?.pushNamed('/history'),
               );
           }
-          return MaterialPageRoute(builder: (_) => page, settings: settings);
+          // Typed <String> -- '/correction-request' is pushed via
+          // pushNamed<String>() above, which requires the produced route
+          // to actually be a Route<String> (an untyped MaterialPageRoute
+          // infers <dynamic> and fails that check at runtime on web).
+          return MaterialPageRoute<String>(builder: (_) => page, settings: settings);
         },
       ),
     );

@@ -171,33 +171,40 @@ class _HubTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(12),
+    // _HubCard paints an opaque background behind this tile, which would
+    // otherwise hide ListTile's ink splash (it paints on the nearest
+    // Material ancestor, underneath that background) -- a transparent
+    // Material here gives the splash its own paint layer on top of it.
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: AppColors.primaryMaroon, size: 20),
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: AppColors.primaryMaroon, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          fontSize: 13,
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            fontSize: 13,
+          ),
         ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: AppColors.textSecondary,
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }

@@ -131,7 +131,11 @@ class _TeacherDocumentsTabNavigatorState
                 );
               }
           }
-          return MaterialPageRoute(builder: (_) => page, settings: settings);
+          // Typed <String> -- '/add-requirement' is pushed via
+          // pushNamed<String>() above, which requires the produced route
+          // to actually be a Route<String> (an untyped MaterialPageRoute
+          // infers <dynamic> and fails that check at runtime on web).
+          return MaterialPageRoute<String>(builder: (_) => page, settings: settings);
         },
       ),
     );

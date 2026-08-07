@@ -61,7 +61,13 @@ class _TeacherNotificationsTabNavigatorState
                     ),
               );
           }
-          return MaterialPageRoute(builder: (_) => page, settings: settings);
+          // Typed <String> because '/create-announcement' is pushed via
+          // pushNamed<String>() below -- Navigator's pushNamed<T> asserts
+          // the produced route actually is a Route<T>, and an untyped
+          // MaterialPageRoute infers <dynamic>, which fails that check at
+          // runtime on web (TypeError: MaterialPageRoute<dynamic> is not
+          // a subtype of Route<String>?).
+          return MaterialPageRoute<String>(builder: (_) => page, settings: settings);
         },
       ),
     );
