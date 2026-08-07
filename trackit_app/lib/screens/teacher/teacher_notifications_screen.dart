@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/announcement.dart';
 import '../../models/instructor_notification.dart';
+import '../../services/api_client.dart';
 import '../../services/teacher_announcements_service.dart';
 import '../../services/teacher_notifications_service.dart';
 import '../../utils/app_colors.dart';
@@ -15,7 +16,7 @@ enum _NoticeTab { notifications, announcements }
 class TeacherNotificationsScreen extends StatefulWidget {
   final TeacherNotificationsService notificationsService;
   final TeacherAnnouncementsService announcementsService;
-  final Future<String?> Function() onOpenCreateAnnouncement;
+  final Future<String?> Function({Announcement? existing}) onOpenCreateAnnouncement;
 
   const TeacherNotificationsScreen({
     super.key,
@@ -65,6 +66,61 @@ class _TeacherNotificationsScreenState
     if (result != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result), backgroundColor: AppColors.successGreenText),
+      );
+    }
+  }
+
+  Future<void> _editAnnouncement(Announcement announcement) async {
+    final result = await widget.onOpenCreateAnnouncement(existing: announcement);
+    if (!mounted) return;
+    await _loadAnnouncements();
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result), backgroundColor: AppColors.successGreenText),
+      );
+    }
+  }
+
+  Future<void> _deleteAnnouncement(Announcement announcement) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Announcement'),
+        content: Text('Delete "${announcement.title}"? This can\'t be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.statRedIcon),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await widget.announcementsService.deleteAnnouncement(announcement.id);
+      await _loadAnnouncements();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Announcement deleted.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.statRedIcon),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not reach the server. Is it running?'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
       );
     }
   }
@@ -257,7 +313,11 @@ class _TeacherNotificationsScreenState
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
                 for (final announcement in announcements)
-                  AnnouncementCard(announcement: announcement),
+                  AnnouncementCard(
+                    announcement: announcement,
+                    onEdit: () => _editAnnouncement(announcement),
+                    onDelete: () => _deleteAnnouncement(announcement),
+                  ),
               ],
             ),
     );

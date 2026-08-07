@@ -6,12 +6,14 @@ import '../../models/student.dart';
 import '../../services/api_client.dart';
 import '../../services/attendance_service.dart';
 import '../../services/notifications_service.dart';
+import '../../services/student_announcements_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import 'attendance_tab_navigator.dart';
 import 'documents/documents_tab_navigator.dart';
 import 'notifications_screen.dart';
 import 'profile/profile_tab_navigator.dart';
+import 'student_announcements_screen.dart';
 import 'student_home_view.dart';
 
 class StudentShell extends StatefulWidget {
@@ -43,6 +45,8 @@ class _StudentShellState extends State<StudentShell> {
   );
   late final NotificationsService _notificationsService =
       HttpNotificationsService(widget.client);
+  late final StudentAnnouncementsService _announcementsService =
+      HttpStudentAnnouncementsService(widget.client);
 
   @override
   void initState() {
@@ -63,15 +67,24 @@ class _StudentShellState extends State<StudentShell> {
     setState(() => _navIndex = index);
   }
 
+  // Home has no nested Navigator of its own (unlike the tabs that do), so
+  // "See All" on the announcement preview uses a plain root-level push.
+  void _openAnnouncements() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => StudentAnnouncementsScreen(service: _announcementsService),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       StudentHomeView(
         student: widget.student,
         progress: widget.initialProgress,
-        notificationsService: _notificationsService,
-        onNavigateTo: _goToTab,
-        onOpenNotifications: () => setState(() => _navIndex = 3),
+        announcementsService: _announcementsService,
+        onOpenAnnouncements: _openAnnouncements,
       ),
       AttendanceTabNavigator(
         service: _attendanceService,

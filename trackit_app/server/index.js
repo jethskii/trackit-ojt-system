@@ -24,13 +24,14 @@ const requirementsRoutes = require('./routes/requirements');
 const customRequirementsRoutes = require('./routes/customRequirements');
 const activityReportsRoutes = require('./routes/activityReports');
 const notificationsRoutes = require('./routes/notifications');
+const announcementsRoutes = require('./routes/announcements');
 const profileRoutes = require('./routes/profile');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // multer's disk storage needs these to exist up front.
-for (const dir of ['uploads/requirements', 'uploads/avatars']) {
+for (const dir of ['uploads/requirements', 'uploads/avatars', 'uploads/announcements']) {
   fs.mkdirSync(path.join(__dirname, dir), { recursive: true });
 }
 
@@ -80,6 +81,7 @@ app.use('/api/requirements', requirementsRoutes);
 app.use('/api/custom-requirements', customRequirementsRoutes);
 app.use('/api/activity-reports', activityReportsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/announcements', announcementsRoutes);
 app.use('/api/profile', profileRoutes);
 
 app.listen(PORT, () => {

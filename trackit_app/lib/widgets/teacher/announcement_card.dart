@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/announcement.dart';
+import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 
 class AnnouncementCard extends StatelessWidget {
   final Announcement announcement;
 
-  const AnnouncementCard({super.key, required this.announcement});
+  /// Only shown when both are provided -- the Home Dashboard preview
+  /// passes neither (read-only glance), while the Notification tab's
+  /// Announcements list (the instructor's own, full management view)
+  /// wires both in.
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const AnnouncementCard({
+    super.key,
+    required this.announcement,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +55,22 @@ class AnnouncementCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onEdit != null)
+                InkWell(
+                  onTap: onEdit,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textSecondary),
+                  ),
+                ),
+              if (onDelete != null)
+                InkWell(
+                  onTap: onDelete,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.delete_outline, size: 16, color: AppColors.statRedIcon),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 6),
@@ -49,6 +78,27 @@ class AnnouncementCard extends StatelessWidget {
             announcement.content,
             style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
+          if (announcement.imageUrl != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image.network(
+                  ApiClient.resolveUrl(announcement.imageUrl!),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppColors.background,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Wrap(
             spacing: 6,

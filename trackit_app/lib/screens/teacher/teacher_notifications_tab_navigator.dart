@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/announcement.dart';
 import '../../services/teacher_announcements_service.dart';
 import '../../services/teacher_classes_service.dart';
 import '../../services/teacher_notifications_service.dart';
@@ -45,6 +46,7 @@ class _TeacherNotificationsTabNavigatorState
               page = CreateAnnouncementScreen(
                 announcementsService: widget.announcementsService,
                 classesService: widget.classesService,
+                existingAnnouncement: settings.arguments as Announcement?,
               );
               break;
             case '/':
@@ -52,8 +54,11 @@ class _TeacherNotificationsTabNavigatorState
               page = TeacherNotificationsScreen(
                 notificationsService: widget.notificationsService,
                 announcementsService: widget.announcementsService,
-                onOpenCreateAnnouncement: () => _navigatorKey.currentState!
-                    .pushNamed<String>('/create-announcement'),
+                onOpenCreateAnnouncement: ({Announcement? existing}) =>
+                    _navigatorKey.currentState!.pushNamed<String>(
+                      '/create-announcement',
+                      arguments: existing,
+                    ),
               );
           }
           return MaterialPageRoute(builder: (_) => page, settings: settings);

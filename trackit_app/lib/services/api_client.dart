@@ -71,23 +71,38 @@ class ApiClient {
   /// [contentType] matters: without it, MultipartFile.fromBytes defaults to
   /// application/octet-stream, which the server's image-only fileFilter
   /// (jpeg/png/webp) rejects even for a genuine image upload.
+  ///
+  /// [fields] carries any other form fields (e.g. title/content/classIds)
+  /// alongside the file -- multer parses these into req.body as strings on
+  /// the server, so a caller sending a list (like classIds) must
+  /// JSON-encode it first.
+  ///
+  /// [method] defaults to POST; pass 'PATCH' for an edit that may also
+  /// replace the file. The file itself is optional -- omit [fileBytes] to
+  /// send just the form fields (e.g. editing text without touching the
+  /// image).
   Future<Map<String, dynamic>> postMultipart(
     String path, {
     required String fieldName,
-    required List<int> fileBytes,
-    required String fileName,
+    List<int>? fileBytes,
+    String? fileName,
     String contentType = 'image/jpeg',
+    Map<String, String> fields = const {},
+    String method = 'POST',
   }) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+    final request = http.MultipartRequest(method, Uri.parse('$baseUrl$path'));
     if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        fieldName,
-        fileBytes,
-        filename: fileName,
-        contentType: MediaType.parse(contentType),
-      ),
-    );
+    request.fields.addAll(fields);
+    if (fileBytes != null && fileName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fieldName,
+          fileBytes,
+          filename: fileName,
+          contentType: MediaType.parse(contentType),
+        ),
+      );
+    }
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     return _decode(response);

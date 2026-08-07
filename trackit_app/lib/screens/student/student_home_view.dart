@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/notification.dart';
 import '../../models/ojt_progress.dart';
 import '../../models/student.dart';
-import '../../services/notifications_service.dart';
+import '../../services/student_announcements_service.dart';
 import '../../widgets/common/app_header.dart';
 import '../../widgets/student/announcements_section.dart';
 import '../../widgets/student/ojt_progress_card.dart';
@@ -11,17 +10,15 @@ import '../../widgets/student/student_profile_card.dart';
 class StudentHomeView extends StatelessWidget {
   final Student student;
   final OjtProgress progress;
-  final NotificationsService notificationsService;
-  final ValueChanged<NotificationTarget> onNavigateTo;
-  final VoidCallback onOpenNotifications;
+  final StudentAnnouncementsService announcementsService;
+  final VoidCallback onOpenAnnouncements;
 
   const StudentHomeView({
     super.key,
     required this.student,
     required this.progress,
-    required this.notificationsService,
-    required this.onNavigateTo,
-    required this.onOpenNotifications,
+    required this.announcementsService,
+    required this.onOpenAnnouncements,
   });
 
   @override
@@ -48,9 +45,8 @@ class StudentHomeView extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               child: AnnouncementsSection(
-                service: notificationsService,
-                onNavigateTo: onNavigateTo,
-                onSeeAll: onOpenNotifications,
+                service: announcementsService,
+                onSeeAll: onOpenAnnouncements,
               ),
             ),
           ],
