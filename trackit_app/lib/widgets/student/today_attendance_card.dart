@@ -70,9 +70,12 @@ class TodayAttendanceCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _OverallStatusPill(status: overallStatus),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _AttemptsRemainingLabel(remaining: attendance.attemptsRemaining),
+              _OverallStatusPill(status: overallStatus),
+            ],
           ),
           const SizedBox(height: 8),
           IntrinsicHeight(
@@ -220,6 +223,33 @@ class _AttendanceColumn extends StatelessWidget {
               color: pillText,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttemptsRemainingLabel extends StatelessWidget {
+  final int remaining;
+
+  const _AttemptsRemainingLabel({required this.remaining});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = remaining == 0
+        ? AppColors.statRedIcon
+        : (remaining == 1 ? AppColors.statOrangeIcon : AppColors.textSecondary);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (remaining == 0)
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: Icon(Icons.lock_outline, size: 12, color: AppColors.statRedIcon),
+          ),
+        Text(
+          'Attempts Remaining: $remaining/${TodayAttendance.maxAttempts}',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
         ),
       ],
     );

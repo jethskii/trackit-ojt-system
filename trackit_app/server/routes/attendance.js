@@ -9,6 +9,12 @@ router.use(requireAuth);
 
 const GEOFENCE_RADIUS_METERS = 100;
 const EARTH_RADIUS_METERS = 6371000;
+// Only a successful clock-in spends an attempt (see the migration file's
+// comment) -- 2 per calendar day, tracked server-side on
+// attendance_records.attempts_used, enforced atomically so it can't be
+// bypassed by rapid double-clicks, duplicate requests, refreshing, or
+// switching devices.
+const MAX_DAILY_ATTEMPTS = 2;
 
 function todayDateString() {
   return new Date().toISOString().slice(0, 10);
@@ -76,13 +82,24 @@ router.get('/today', async (req, res) => {
       'SELECT * FROM attendance_records WHERE student_id = $1 AND work_date = $2',
       [req.studentId, todayDateString()],
     );
-    res.json({ success: true, attendance: result.rows[0] || null });
+    res.json({
+      success: true,
+      attendance: result.rows[0] || null,
+      maxAttempts: MAX_DAILY_ATTEMPTS,
+    });
   } catch (error) {
     console.error('Get today attendance error:', error);
     res.status(500).json({ success: false, message: 'Failed to load attendance.' });
   }
 });
 
+// Clock In consumes one of the day's 2 attempts. The INSERT/UPDATE below is
+// a single atomic statement: the eligibility check (no session already
+// open, attempts left) and the write happen together, so a duplicate or
+// rapid double-tapped request can't both pass the check and both write --
+// only one can ever succeed, and a request that fails the WHERE guard
+// writes nothing at all (no attempt is spent on a rejected request). A new
+// cycle clears clock_out so the student can clock out again for it.
 router.post('/clock-in', async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
@@ -94,22 +111,34 @@ router.post('/clock-in', async (req, res) => {
     }
 
     const today = todayDateString();
-    const existing = await pool.query(
-      'SELECT * FROM attendance_records WHERE student_id = $1 AND work_date = $2',
-      [req.studentId, today],
+    const result = await pool.query(
+      `INSERT INTO attendance_records (student_id, work_date, clock_in, clock_out, attempts_used)
+       VALUES ($1, $2, now(), NULL, 1)
+       ON CONFLICT (student_id, work_date) DO UPDATE
+         SET clock_in = now(), clock_out = NULL,
+             attempts_used = attendance_records.attempts_used + 1,
+             updated_at = now()
+         WHERE NOT (attendance_records.clock_in IS NOT NULL AND attendance_records.clock_out IS NULL)
+           AND attendance_records.attempts_used < $3
+       RETURNING *`,
+      [req.studentId, today, MAX_DAILY_ATTEMPTS],
     );
-    if (existing.rows.length > 0 && existing.rows[0].clock_in) {
-      return res.status(409).json({ success: false, message: 'Already clocked in today.' });
+
+    if (result.rows.length === 0) {
+      const existing = await pool.query(
+        'SELECT * FROM attendance_records WHERE student_id = $1 AND work_date = $2',
+        [req.studentId, today],
+      );
+      const row = existing.rows[0];
+      if (row && row.clock_in && !row.clock_out) {
+        return res.status(409).json({ success: false, message: 'Already clocked in today.' });
+      }
+      return res.status(403).json({
+        success: false,
+        message: `You've used all ${MAX_DAILY_ATTEMPTS} of your clocking attempts for today.`,
+      });
     }
 
-    const result = await pool.query(
-      `INSERT INTO attendance_records (student_id, work_date, clock_in)
-       VALUES ($1, $2, now())
-       ON CONFLICT (student_id, work_date)
-       DO UPDATE SET clock_in = now(), updated_at = now()
-       RETURNING *`,
-      [req.studentId, today],
-    );
     res.json({ success: true, attendance: result.rows[0] });
   } catch (error) {
     console.error('Clock in error:', error);
@@ -117,6 +146,9 @@ router.post('/clock-in', async (req, res) => {
   }
 });
 
+// Clock Out just closes whatever session is currently open -- it never
+// spends an attempt, so it's always available once clocked in, regardless
+// of how many attempts remain. Same atomic-guard pattern as clock-in.
 router.post('/clock-out', async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
@@ -128,23 +160,26 @@ router.post('/clock-out', async (req, res) => {
     }
 
     const today = todayDateString();
-    const existing = await pool.query(
-      'SELECT * FROM attendance_records WHERE student_id = $1 AND work_date = $2',
-      [req.studentId, today],
-    );
-    if (existing.rows.length === 0 || !existing.rows[0].clock_in) {
-      return res.status(409).json({ success: false, message: 'You need to clock in first.' });
-    }
-    if (existing.rows[0].clock_out) {
-      return res.status(409).json({ success: false, message: 'Already clocked out today.' });
-    }
-
     const result = await pool.query(
       `UPDATE attendance_records SET clock_out = now(), updated_at = now()
        WHERE student_id = $1 AND work_date = $2
+         AND clock_in IS NOT NULL AND clock_out IS NULL
        RETURNING *`,
       [req.studentId, today],
     );
+
+    if (result.rows.length === 0) {
+      const existing = await pool.query(
+        'SELECT * FROM attendance_records WHERE student_id = $1 AND work_date = $2',
+        [req.studentId, today],
+      );
+      const row = existing.rows[0];
+      if (!row || !row.clock_in) {
+        return res.status(409).json({ success: false, message: 'You need to clock in first.' });
+      }
+      return res.status(409).json({ success: false, message: 'Already clocked out today.' });
+    }
+
     res.json({ success: true, attendance: result.rows[0] });
   } catch (error) {
     console.error('Clock out error:', error);

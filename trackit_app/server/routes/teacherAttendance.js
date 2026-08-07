@@ -19,6 +19,7 @@ function toRecordJson(row) {
     clockIn: row.clock_in,
     clockOut: row.clock_out,
     hoursRendered: hours,
+    attemptsUsed: row.attempts_used,
   };
 }
 

@@ -20,26 +20,33 @@ class AttendanceQuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeLabel = DateFormat('hh:mm a').format(currentTime);
-    final actionLabel = !attendance.hasClockedIn
-        ? 'CLOCK IN'
-        : (attendance.hasClockedOut ? 'CLOCKED OUT' : 'CLOCK OUT');
-    final enabled = !attendance.hasClockedOut && onClockAction != null;
+    // Clocked out and out of attempts to start a new cycle -- truly
+    // nothing left to do until tomorrow, distinct from "clocked out but
+    // could clock in again" or "mid-session, clock out any time."
+    final isLocked = attendance.attemptsRemaining == 0 && !attendance.isClockedInSession;
+    final actionLabel = attendance.canClockOut
+        ? 'CLOCK OUT'
+        : (attendance.canClockIn ? 'CLOCK IN' : 'LOCKED');
+    final enabled = (attendance.canClockIn || attendance.canClockOut) && onClockAction != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.bolt, size: 18, color: AppColors.primaryMaroon),
-            SizedBox(width: 6),
-            Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+            const Icon(Icons.bolt, size: 18, color: AppColors.primaryMaroon),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
+            _AttemptsPill(remaining: attendance.attemptsRemaining),
           ],
         ),
         const SizedBox(height: 12),
@@ -64,7 +71,67 @@ class AttendanceQuickActions extends StatelessWidget {
             ],
           ),
         ),
+        if (isLocked) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.chipGrayBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lock_outline, size: 18, color: AppColors.textSecondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'No attempts remaining',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'You have used all of your clocking attempts for today. '
+                        'Your attendance actions are now locked until the next day.',
+                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _AttemptsPill extends StatelessWidget {
+  final int remaining;
+
+  const _AttemptsPill({required this.remaining});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLow = remaining <= 1;
+    final bg = isLow ? AppColors.statOrangeBg : AppColors.chipGrayBg;
+    final text = isLow ? AppColors.statOrangeIcon : AppColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        'Attempts: $remaining/${TodayAttendance.maxAttempts}',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: text),
+      ),
     );
   }
 }
@@ -98,7 +165,7 @@ class _ClockActionButton extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.access_time, color: color, size: 22),
+            Icon(enabled ? Icons.access_time : Icons.lock_outline, color: color, size: 22),
             const SizedBox(height: 6),
             Text(
               timeLabel,

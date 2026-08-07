@@ -80,17 +80,96 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
     });
   }
 
+  Future<bool?> _showConfirmDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Color confirmColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: confirmColor),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Clock In is the only action that spends an attempt (see
+  // TodayAttendance.canClockOut -- clocking out is always free once a
+  // session is open), so it's the only one that can trigger the
+  // final-attempt warning before its normal confirmation.
+  Future<bool> _confirmClockIn() async {
+    final remaining = _attendance.attemptsRemaining;
+    if (remaining <= 1) {
+      final acknowledged = await _showConfirmDialog(
+        title: '⚠️ Final Attempt for Today',
+        message:
+            'You only have 1 clocking attempt remaining today.\n\n'
+            'Please make sure your Clock In action is correct before '
+            'continuing. This will be your final attempt for today.',
+        confirmLabel: 'Continue',
+        confirmColor: AppColors.statOrangeIcon,
+      );
+      if (acknowledged != true) return false;
+    }
+    final confirmed = await _showConfirmDialog(
+      title: 'Confirm Clock In',
+      message:
+          'Are you sure you want to clock in now?\n\n'
+          'You have $remaining attempt${remaining == 1 ? '' : 's'} '
+          'remaining today.',
+      confirmLabel: 'Clock In',
+      confirmColor: AppColors.primaryMaroon,
+    );
+    return confirmed == true;
+  }
+
+  Future<bool> _confirmClockOut() async {
+    final remaining = _attendance.attemptsRemaining;
+    final confirmed = await _showConfirmDialog(
+      title: 'Confirm Clock Out',
+      message:
+          'Are you sure you want to clock out now?\n\n'
+          'You have $remaining attempt${remaining == 1 ? '' : 's'} '
+          'remaining today. Please make sure your attendance information '
+          'is correct.',
+      confirmLabel: 'Clock Out',
+      confirmColor: AppColors.primaryMaroon,
+    );
+    return confirmed == true;
+  }
+
   Future<void> _handleClockAction() async {
     if (_busy) return;
+    final isClockIn = _attendance.canClockIn;
+    if (!isClockIn && !_attendance.canClockOut) return;
+
     setState(() => _busy = true);
     try {
+      final proceed = isClockIn ? await _confirmClockIn() : await _confirmClockOut();
+      if (!proceed) return;
+      if (!mounted) return;
+
       final position = await getCurrentPosition();
-      final updated = _attendance.hasClockedIn
-          ? await widget.service.clockOut(
+      final updated = isClockIn
+          ? await widget.service.clockIn(
               latitude: position.latitude,
               longitude: position.longitude,
             )
-          : await widget.service.clockIn(
+          : await widget.service.clockOut(
               latitude: position.latitude,
               longitude: position.longitude,
             );
@@ -104,15 +183,13 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
         _progress = progress;
         _now = DateTime.now();
       });
+      final remaining = updated.attemptsRemaining;
+      final message = isClockIn
+          ? 'Clock In recorded at $timeLabel. $remaining attempt'
+                '${remaining == 1 ? '' : 's'} remaining today.'
+          : 'Clock Out recorded at $timeLabel.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            updated.hasClockedOut
-                ? 'Clocked out at $timeLabel'
-                : 'Clocked in at $timeLabel',
-          ),
-          backgroundColor: AppColors.successGreenText,
-        ),
+        SnackBar(content: Text(message), backgroundColor: AppColors.successGreenText),
       );
     } on LocationException catch (e) {
       if (!mounted) return;

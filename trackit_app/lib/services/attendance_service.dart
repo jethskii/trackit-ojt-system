@@ -47,6 +47,7 @@ class HttpAttendanceService implements AttendanceService {
       date: DateTime.parse(json['work_date'] as String),
       clockIn: json['clock_in'] != null ? DateTime.parse(json['clock_in'] as String) : null,
       clockOut: json['clock_out'] != null ? DateTime.parse(json['clock_out'] as String) : null,
+      attemptsUsed: json['attempts_used'] as int? ?? 0,
     );
   }
 
