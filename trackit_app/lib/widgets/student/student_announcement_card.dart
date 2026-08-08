@@ -13,6 +13,8 @@ class StudentAnnouncementCard extends StatelessWidget {
 
   const StudentAnnouncementCard({super.key, required this.announcement});
 
+  bool get _isAdmin => announcement.source == AnnouncementSource.admin;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -39,25 +41,52 @@ class StudentAnnouncementCard extends StatelessWidget {
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
-                    color: AppColors.statBlueBg,
+                  decoration: BoxDecoration(
+                    color: _isAdmin ? AppColors.statPurpleBg : AppColors.statBlueBg,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.school_outlined, size: 16, color: AppColors.statBlueIcon),
+                  child: Icon(
+                    _isAdmin ? Icons.shield_outlined : Icons.school_outlined,
+                    size: 16,
+                    color: _isAdmin ? AppColors.statPurpleIcon : AppColors.statBlueIcon,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        announcement.instructorName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            announcement.authorName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          if (_isAdmin) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.statPurpleBg,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'ADMIN',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.statPurpleIcon,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         DateFormat('MMM d, yyyy • h:mm a').format(announcement.createdAt),

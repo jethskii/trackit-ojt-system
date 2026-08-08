@@ -6,6 +6,7 @@ class InstructorNotification {
   final String id;
   final String title;
   final String message;
+  final String category;
   final String? relatedModule;
   final String? relatedStudentId;
   final bool isRead;
@@ -15,6 +16,7 @@ class InstructorNotification {
     required this.id,
     required this.title,
     required this.message,
+    required this.category,
     this.relatedModule,
     this.relatedStudentId,
     required this.isRead,
@@ -26,6 +28,7 @@ class InstructorNotification {
       id: id,
       title: title,
       message: message,
+      category: category,
       relatedModule: relatedModule,
       relatedStudentId: relatedStudentId,
       isRead: isRead ?? this.isRead,
@@ -38,6 +41,7 @@ class InstructorNotification {
       id: json['id'].toString(),
       title: json['title'] as String,
       message: json['message'] as String,
+      category: json['category'] as String? ?? 'student',
       relatedModule: json['related_module'] as String?,
       relatedStudentId: json['related_student_id']?.toString(),
       isRead: json['is_read'] as bool? ?? false,

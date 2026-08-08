@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
+import 'admin_announcements_screen.dart';
 import 'admin_class_management_screen.dart';
 import 'admin_placeholder_screen.dart';
 
@@ -163,10 +164,7 @@ class _AdminShellState extends State<AdminShell> {
         title: 'HTE Directory',
         icon: Icons.apartment_outlined,
       ),
-      const AdminPlaceholderScreen(
-        title: 'Announcements',
-        icon: Icons.campaign_outlined,
-      ),
+      AdminAnnouncementsScreen(client: widget.client),
       const AdminPlaceholderScreen(title: 'Archive', icon: Icons.archive_outlined),
       const AdminPlaceholderScreen(
         title: 'Profile',

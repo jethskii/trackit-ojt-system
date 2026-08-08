@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const instructorAuthRoutes = require('./routes/instructorAuth');
 const adminAuthRoutes = require('./routes/adminAuth');
 const adminClassesRoutes = require('./routes/adminClasses');
+const adminAnnouncementsRoutes = require('./routes/adminAnnouncements');
 const teacherDashboardRoutes = require('./routes/teacherDashboard');
 const teacherClassesRoutes = require('./routes/teacherClasses');
 const classesRoutes = require('./routes/classes');
@@ -33,7 +34,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // multer's disk storage needs these to exist up front.
-for (const dir of ['uploads/requirements', 'uploads/avatars', 'uploads/announcements']) {
+for (const dir of [
+  'uploads/requirements',
+  'uploads/avatars',
+  'uploads/announcements',
+  'uploads/admin-announcements',
+]) {
   fs.mkdirSync(path.join(__dirname, dir), { recursive: true });
 }
 
@@ -69,6 +75,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/instructor-auth', instructorAuthRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/admin/classes', adminClassesRoutes);
+app.use('/api/admin/announcements', adminAnnouncementsRoutes);
 app.use('/api/teacher/dashboard', teacherDashboardRoutes);
 app.use('/api/teacher/classes', teacherClassesRoutes);
 app.use('/api/teacher/students', teacherStudentsRoutes);

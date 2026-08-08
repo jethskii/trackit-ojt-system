@@ -12,7 +12,10 @@ class InstructorNotificationTile extends StatelessWidget {
     required this.onTap,
   });
 
+  bool get _isAdmin => notification.category == 'admin';
+
   IconData get _moduleIcon {
+    if (_isAdmin) return Icons.shield_outlined;
     switch (notification.relatedModule) {
       case 'requirements':
         return Icons.assignment_late_outlined;
@@ -56,12 +59,16 @@ class InstructorNotificationTile extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: const BoxDecoration(
-                  color: AppColors.statBlueBg,
+                decoration: BoxDecoration(
+                  color: _isAdmin ? AppColors.statPurpleBg : AppColors.statBlueBg,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(_moduleIcon, size: 16, color: AppColors.statBlueIcon),
+                child: Icon(
+                  _moduleIcon,
+                  size: 16,
+                  color: _isAdmin ? AppColors.statPurpleIcon : AppColors.statBlueIcon,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
