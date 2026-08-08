@@ -74,8 +74,9 @@ class _ProfileTabNavigatorState extends State<ProfileTabNavigator> {
                     _navigatorKey.currentState?.pushNamed('/help-center'),
                 onOpenSettings: () =>
                     _navigatorKey.currentState?.pushNamed('/settings'),
-                onOpenEditProfile: () =>
-                    _navigatorKey.currentState?.pushNamed('/edit-profile'),
+                onOpenEditProfile: () async {
+                  await _navigatorKey.currentState?.pushNamed('/edit-profile');
+                },
                 onOpenLoginHistory: () =>
                     _navigatorKey.currentState?.pushNamed('/login-history'),
                 onLoggedOut: widget.onLoggedOut,

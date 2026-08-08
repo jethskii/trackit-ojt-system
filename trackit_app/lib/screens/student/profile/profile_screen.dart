@@ -15,7 +15,7 @@ class ProfileScreen extends StatefulWidget {
   final ValueChanged<StudentProfile> onProfileUpdated;
   final VoidCallback onOpenHelpCenter;
   final VoidCallback onOpenSettings;
-  final VoidCallback onOpenEditProfile;
+  final Future<void> Function() onOpenEditProfile;
   final VoidCallback onOpenLoginHistory;
   final VoidCallback onLoggedOut;
 
@@ -52,6 +52,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _profile = profile;
       _loading = false;
     });
+  }
+
+  // Edit Profile is a separate route on the same nested Navigator, not a
+  // dialog this screen owns -- popping back to this (already-mounted)
+  // screen doesn't rebuild it on its own, so without this the name/photo
+  // shown here would stay stale until the tab was left and reopened.
+  Future<void> _openEditProfile() async {
+    await widget.onOpenEditProfile();
+    if (mounted) await _load();
   }
 
   String _inferContentType(XFile file) {
@@ -339,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: Icons.edit_outlined,
                             title: 'Edit Profile',
                             subtitle: 'Name, photo & contact info',
-                            onTap: widget.onOpenEditProfile,
+                            onTap: _openEditProfile,
                           ),
                           const Divider(height: 1),
                           SettingsTile(
