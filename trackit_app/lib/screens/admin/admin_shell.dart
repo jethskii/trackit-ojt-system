@@ -20,10 +20,16 @@ const _sections = [
   _AdminSection('Profile', Icons.account_circle_outlined),
 ];
 
+// Below this width there's no room for a 250px-wide sidebar sitting next
+// to real content -- the sidebar becomes a Drawer instead.
+const _wideBreakpoint = 900.0;
+
 /// Admin's shell is a left sidebar (web-first, per the mockup) rather than
 /// the bottom nav every other role uses -- Admin is explicitly a web
 /// surface, so this is a deliberate, one-off departure from the shared
-/// AppBottomNav pattern, not an inconsistency.
+/// AppBottomNav pattern, not an inconsistency. On a narrow viewport
+/// (phone, or a resized browser window) it falls back to a Drawer + AppBar
+/// so the sidebar doesn't just overflow the screen.
 class AdminShell extends StatefulWidget {
   final ApiClient client;
   final String adminName;
@@ -66,6 +72,88 @@ class _AdminShellState extends State<AdminShell> {
     if (confirmed == true) widget.onLoggedOut();
   }
 
+  Widget _buildSidebarContent({required bool closeDrawerOnTap}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
+          child: Row(
+            children: [
+              _LogoMark(),
+              SizedBox(width: 10),
+              Text(
+                'TrackIT',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.white24,
+                child: Icon(Icons.person, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.adminName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Text(
+                      'Administrator',
+                      style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        for (var i = 0; i < _sections.length; i++)
+          _SidebarItem(
+            icon: _sections[i].icon,
+            label: _sections[i].label,
+            selected: _index == i,
+            onTap: () {
+              setState(() => _index = i);
+              if (closeDrawerOnTap) Navigator.of(context).pop();
+            },
+          ),
+        const Spacer(),
+        const Divider(color: Colors.white24, height: 1),
+        _SidebarItem(
+          icon: Icons.logout,
+          label: 'Log Out',
+          selected: false,
+          onTap: () {
+            if (closeDrawerOnTap) Navigator.of(context).pop();
+            _confirmLogout();
+          },
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -86,104 +174,52 @@ class _AdminShellState extends State<AdminShell> {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Row(
-        children: [
-          Container(
-            width: 250,
-            color: AppColors.primaryMaroon,
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
-                    child: Row(
-                      children: [
-                        _LogoMark(),
-                        SizedBox(width: 10),
-                        Text(
-                          'TrackIT',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= _wideBreakpoint;
+        if (isWide) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: Row(
+              children: [
+                Container(
+                  width: 250,
+                  color: AppColors.primaryMaroon,
+                  child: SafeArea(
+                    child: _buildSidebarContent(closeDrawerOnTap: false),
+                  ),
+                ),
+                Expanded(
+                  child: SafeArea(
+                    left: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: IndexedStack(index: _index, children: pages),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.white24,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.adminName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const Text(
-                                'Administrator',
-                                style: TextStyle(color: Colors.white70, fontSize: 11.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  for (var i = 0; i < _sections.length; i++)
-                    _SidebarItem(
-                      icon: _sections[i].icon,
-                      label: _sections[i].label,
-                      selected: _index == i,
-                      onTap: () => setState(() => _index = i),
-                    ),
-                  const Spacer(),
-                  const Divider(color: Colors.white24, height: 1),
-                  _SidebarItem(
-                    icon: Icons.logout,
-                    label: 'Log Out',
-                    selected: false,
-                    onTap: _confirmLogout,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
+                ),
+              ],
             ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.primaryMaroon,
+            foregroundColor: Colors.white,
+            title: Text(_sections[_index].label),
           ),
-          Expanded(
-            child: SafeArea(
-              left: false,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: IndexedStack(index: _index, children: pages),
-              ),
-            ),
+          drawer: Drawer(
+            backgroundColor: AppColors.primaryMaroon,
+            child: SafeArea(child: _buildSidebarContent(closeDrawerOnTap: true)),
           ),
-        ],
-      ),
+          body: Padding(
+            padding: const EdgeInsets.all(12),
+            child: IndexedStack(index: _index, children: pages),
+          ),
+        );
+      },
     );
   }
 }
