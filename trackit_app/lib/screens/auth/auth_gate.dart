@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../services/admin_auth_service.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/instructor_auth_service.dart';
 import '../../services/session_role.dart';
 import '../../utils/app_colors.dart';
+import '../admin/admin_bootstrap.dart';
 import '../student/student_bootstrap.dart';
 import '../teacher/teacher_bootstrap.dart';
 import 'login_screen.dart';
@@ -24,6 +26,7 @@ class _AuthGateState extends State<AuthGate> {
   late final AuthService _authService = AuthService(_client);
   late final InstructorAuthService _instructorAuthService =
       InstructorAuthService(_client);
+  late final AdminAuthService _adminAuthService = AdminAuthService(_client);
   final SessionRoleStore _roleStore = SessionRoleStore();
   bool _checking = true;
   SessionRole? _activeRole;
@@ -43,6 +46,9 @@ class _AuthGateState extends State<AuthGate> {
     } else if (role == SessionRole.instructor) {
       final token = await _instructorAuthService.loadStoredToken();
       if (token != null) resolvedRole = SessionRole.instructor;
+    } else if (role == SessionRole.admin) {
+      final token = await _adminAuthService.loadStoredToken();
+      if (token != null) resolvedRole = SessionRole.admin;
     }
     if (!mounted) return;
     setState(() {
@@ -60,6 +66,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _handleLoggedOut() async {
     await _authService.logout();
     await _instructorAuthService.logout();
+    await _adminAuthService.logout();
     await _roleStore.clear();
     if (mounted) setState(() => _activeRole = null);
   }
@@ -80,10 +87,13 @@ class _AuthGateState extends State<AuthGate> {
         return StudentBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
       case SessionRole.instructor:
         return TeacherBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
+      case SessionRole.admin:
+        return AdminBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
       case null:
         return LoginScreen(
           authService: _authService,
           instructorAuthService: _instructorAuthService,
+          adminAuthService: _adminAuthService,
           onLoggedIn: _handleLoggedIn,
         );
     }

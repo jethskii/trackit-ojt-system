@@ -65,7 +65,8 @@ trackit-ojt-system/
             ├── migration_teacher_documents.sql
             ├── migration_announcement_images.sql
             ├── migration_attendance_daily_attempts.sql
-            └── migration_student_profile_enhancements.sql   # run last
+            ├── migration_student_profile_enhancements.sql
+            └── migration_admin.sql                          # run last
 ```
 
 Every feature follows the same pattern: a Dart **model**, an abstract
@@ -100,6 +101,7 @@ Requires `trackit_app/.env` (see `trackit_app/.env.example`) with
 11. `migration_announcement_images.sql`
 12. `migration_attendance_daily_attempts.sql`
 13. `migration_student_profile_enhancements.sql`
+14. `migration_admin.sql`
 
 All migrations are non-destructive (`ADD COLUMN IF NOT EXISTS`, etc.) and
 safe to re-run.

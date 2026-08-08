@@ -2,6 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+class RawFileResponse {
+  final List<int> bytes;
+  final String? filename;
+
+  const RawFileResponse({required this.bytes, this.filename});
+}
+
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -34,6 +41,28 @@ class ApiClient {
   Future<Map<String, dynamic>> get(String path) async {
     final response = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
     return _decode(response);
+  }
+
+  /// For non-JSON downloads (e.g. CSV export) -- the auth header still
+  /// applies, so unlike a plain browser navigation to the URL, this
+  /// actually works against an authenticated endpoint.
+  Future<RawFileResponse> getBytes(String path) async {
+    final response = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      var message = 'Something went wrong.';
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        message = body['message'] as String? ?? message;
+      } catch (_) {
+        // Non-JSON error body -- fall back to the generic message.
+      }
+      throw ApiException(message, statusCode: response.statusCode);
+    }
+    final disposition = response.headers['content-disposition'];
+    final match = disposition != null
+        ? RegExp(r'filename="?([^"]+)"?').firstMatch(disposition)
+        : null;
+    return RawFileResponse(bytes: response.bodyBytes, filename: match?.group(1));
   }
 
   Future<Map<String, dynamic>> post(String path, {Map<String, dynamic>? body}) async {

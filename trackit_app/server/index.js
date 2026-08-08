@@ -8,6 +8,8 @@ const pool = require('./db');
 
 const authRoutes = require('./routes/auth');
 const instructorAuthRoutes = require('./routes/instructorAuth');
+const adminAuthRoutes = require('./routes/adminAuth');
+const adminClassesRoutes = require('./routes/adminClasses');
 const teacherDashboardRoutes = require('./routes/teacherDashboard');
 const teacherClassesRoutes = require('./routes/teacherClasses');
 const classesRoutes = require('./routes/classes');
@@ -65,6 +67,8 @@ app.get('/api/test-db', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/instructor-auth', instructorAuthRoutes);
+app.use('/api/admin-auth', adminAuthRoutes);
+app.use('/api/admin/classes', adminClassesRoutes);
 app.use('/api/teacher/dashboard', teacherDashboardRoutes);
 app.use('/api/teacher/classes', teacherClassesRoutes);
 app.use('/api/teacher/students', teacherStudentsRoutes);

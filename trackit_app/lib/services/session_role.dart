@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// AuthService (student) and InstructorAuthService keep separate tokens
 /// under separate storage keys -- this says which one AuthGate should
 /// trust on app restart.
-enum SessionRole { student, instructor }
+enum SessionRole { student, instructor, admin }
 
 class SessionRoleStore {
   static const _key = 'trackit_active_role';

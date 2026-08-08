@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/admin_auth_service.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/instructor_auth_service.dart';
@@ -10,12 +11,14 @@ import 'register_screen.dart';
 class LoginScreen extends StatefulWidget {
   final AuthService authService;
   final InstructorAuthService instructorAuthService;
+  final AdminAuthService adminAuthService;
   final ValueChanged<SessionRole> onLoggedIn;
 
   const LoginScreen({
     super.key,
     required this.authService,
     required this.instructorAuthService,
+    required this.adminAuthService,
     required this.onLoggedIn,
   });
 
@@ -46,16 +49,25 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      if (_role == SessionRole.student) {
-        await widget.authService.login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-      } else {
-        await widget.instructorAuthService.login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+      switch (_role) {
+        case SessionRole.student:
+          await widget.authService.login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+          break;
+        case SessionRole.instructor:
+          await widget.instructorAuthService.login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+          break;
+        case SessionRole.admin:
+          await widget.adminAuthService.login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+          break;
       }
       if (!mounted) return;
       widget.onLoggedIn(_role);
@@ -154,6 +166,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           label: Text('Instructor'),
                           icon: Icon(Icons.person_outline),
                         ),
+                        ButtonSegment(
+                          value: SessionRole.admin,
+                          label: Text('Admin'),
+                          icon: Icon(Icons.admin_panel_settings_outlined),
+                        ),
                       ],
                       selected: {_role},
                       onSelectionChanged: (selection) => setState(() {
@@ -236,13 +253,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Text('Log In'),
                     ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: _openRegister,
-                        child: const Text("Don't have an account? Register"),
+                    if (_role != SessionRole.admin) ...[
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: _openRegister,
+                          child: const Text("Don't have an account? Register"),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
