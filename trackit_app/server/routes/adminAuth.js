@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
-const { generateAdminToken } = require('../middleware/adminAuth');
+const { generateAdminToken, requireAdminAuth } = require('../middleware/adminAuth');
 
 const router = express.Router();
 
@@ -37,6 +37,29 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Admin login error:', error);
     res.status(500).json({ success: false, message: 'Login failed.' });
+  }
+});
+
+// Used by the Flutter sidebar to show the real logged-in admin's name --
+// the token only carries adminId, not the name, so a fresh app launch
+// (token restored from storage, no login response in memory) needs this
+// to render anything beyond "Admin".
+router.get('/me', requireAdminAuth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email FROM admins WHERE id = $1', [
+      req.adminId,
+    ]);
+    const admin = result.rows[0];
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Admin not found.' });
+    }
+    res.json({
+      success: true,
+      admin: { id: Number(admin.id), name: admin.name, email: admin.email },
+    });
+  } catch (error) {
+    console.error('Get admin me error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load admin.' });
   }
 });
 

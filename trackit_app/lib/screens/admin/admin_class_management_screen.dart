@@ -6,16 +6,12 @@ import '../../utils/app_colors.dart';
 import '../../utils/file_download.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
+import 'admin_class_detail_panel.dart';
 
 class AdminClassManagementScreen extends StatefulWidget {
-  final AdminClassesService classesService;
-  final ValueChanged<int> onOpenClass;
+  final ApiClient client;
 
-  const AdminClassManagementScreen({
-    super.key,
-    required this.classesService,
-    required this.onOpenClass,
-  });
+  const AdminClassManagementScreen({super.key, required this.client});
 
   @override
   State<AdminClassManagementScreen> createState() =>
@@ -24,12 +20,15 @@ class AdminClassManagementScreen extends StatefulWidget {
 
 class _AdminClassManagementScreenState
     extends State<AdminClassManagementScreen> {
+  late final AdminClassesService _classesService = HttpAdminClassesService(
+    widget.client,
+  );
   List<AdminClassSummary> _classes = [];
   bool _loading = true;
   String? _error;
   String _query = '';
-  final Set<int> _selected = {};
-  bool _exporting = false;
+  int? _selectedClassId;
+  bool _exportingAll = false;
 
   @override
   void initState() {
@@ -43,11 +42,15 @@ class _AdminClassManagementScreenState
       _error = null;
     });
     try {
-      final classes = await widget.classesService.getClasses();
+      final classes = await _classesService.getClasses();
       if (!mounted) return;
       setState(() {
         _classes = classes;
         _loading = false;
+        final stillPresent = classes.any((c) => c.id == _selectedClassId);
+        if (!stillPresent) {
+          _selectedClassId = classes.isNotEmpty ? classes.first.id : null;
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -71,21 +74,13 @@ class _AdminClassManagementScreenState
         .toList();
   }
 
-  void _toggleSelected(int classId) {
-    setState(() {
-      if (_selected.contains(classId)) {
-        _selected.remove(classId);
-      } else {
-        _selected.add(classId);
-      }
-    });
-  }
-
-  Future<void> _exportSelected() async {
-    if (_selected.isEmpty || _exporting) return;
-    setState(() => _exporting = true);
+  Future<void> _exportAll() async {
+    if (_classes.isEmpty || _exportingAll) return;
+    setState(() => _exportingAll = true);
     try {
-      final file = await widget.classesService.exportClasses(_selected.toList());
+      final file = await _classesService.exportClasses(
+        _classes.map((c) => c.id).toList(),
+      );
       final filename = file.filename ?? 'trackit-export.csv';
       final saved = downloadBytes(filename: filename, bytes: file.bytes);
       if (!mounted) return;
@@ -102,7 +97,7 @@ class _AdminClassManagementScreenState
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
-      if (mounted) setState(() => _exporting = false);
+      if (mounted) setState(() => _exportingAll = false);
     }
   }
 
@@ -112,53 +107,50 @@ class _AdminClassManagementScreenState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Expanded(
-              child: Text(
-                'Class Management',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Class Management',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryMaroon,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Browse and manage all classes for OJT.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
             ),
-            if (_selected.isNotEmpty)
-              ElevatedButton.icon(
-                onPressed: _exporting ? null : _exportSelected,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryMaroon,
-                  foregroundColor: Colors.white,
-                ),
-                icon: _exporting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.file_download_outlined, size: 18),
-                label: Text('Export ${_selected.length} Selected'),
+            ElevatedButton.icon(
+              onPressed: _exportingAll ? null : _exportAll,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryMaroon,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
+              icon: _exportingAll
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.file_download_outlined, size: 18),
+              label: const Text('Export All Data'),
+            ),
           ],
         ),
-        const SizedBox(height: 16),
-        TextField(
-          onChanged: (v) => setState(() => _query = v),
-          decoration: InputDecoration(
-            hintText: 'Search Class or Instructor...',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: AppColors.cardWhite,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         Expanded(
           child: _loading
               ? const SkeletonList()
@@ -170,138 +162,176 @@ class _AdminClassManagementScreenState
                   actionLabel: 'Retry',
                   onAction: _load,
                 )
-              : RefreshIndicator(
-                  color: AppColors.primaryMaroon,
-                  onRefresh: _load,
-                  child: _filtered.isEmpty
-                      ? ListView(
-                          children: [
-                            EmptyStateView(
-                              icon: Icons.class_outlined,
-                              title: _classes.isEmpty
-                                  ? 'No classes yet'
-                                  : 'No matching classes',
-                              message: _classes.isEmpty
-                                  ? 'Classes created by instructors will appear here.'
-                                  : 'Try a different search.',
-                            ),
-                          ],
-                        )
-                      : GridView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 340,
-                                mainAxisExtent: 150,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final c = _filtered[index];
-                            return _ClassCard(
-                              summary: c,
-                              selected: _selected.contains(c.id),
-                              onTap: () => widget.onOpenClass(c.id),
-                              onToggleSelected: () => _toggleSelected(c.id),
-                            );
-                          },
-                        ),
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: 320, child: _buildListPanel()),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildDetailPanel()),
+                  ],
                 ),
         ),
       ],
     );
   }
+
+  Widget _buildListPanel() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              hintText: 'Search Class / Instructor...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              filled: true,
+              fillColor: AppColors.background,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _filtered.isEmpty
+                ? EmptyStateView(
+                    icon: Icons.class_outlined,
+                    title: _classes.isEmpty ? 'No classes yet' : 'No matching classes',
+                    message: _classes.isEmpty
+                        ? 'Classes created by instructors will appear here.'
+                        : 'Try a different search.',
+                  )
+                : ListView.separated(
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final c = _filtered[index];
+                      return _ClassListTile(
+                        summary: c,
+                        selected: c.id == _selectedClassId,
+                        onTap: () => setState(() => _selectedClassId = c.id),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailPanel() {
+    if (_selectedClassId == null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: EmptyStateView(
+            icon: Icons.class_outlined,
+            title: 'Select a class',
+            message: 'Choose a class on the left to view its details.',
+          ),
+        ),
+      );
+    }
+    return AdminClassDetailPanel(
+      key: ValueKey(_selectedClassId),
+      classId: _selectedClassId!,
+      classesService: _classesService,
+    );
+  }
 }
 
-class _ClassCard extends StatelessWidget {
+class _ClassListTile extends StatelessWidget {
   final AdminClassSummary summary;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onToggleSelected;
 
-  const _ClassCard({
-    required this.summary,
-    required this.selected,
-    required this.onTap,
-    required this.onToggleSelected,
-  });
+  const _ClassListTile({required this.summary, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 0,
+      color: selected ? AppColors.primaryMaroon : AppColors.background,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? AppColors.primaryMaroon : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: selected
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppColors.cardWhite,
+                child: Icon(
+                  Icons.school_outlined,
+                  size: 18,
+                  color: selected ? Colors.white : AppColors.primaryMaroon,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       '${summary.program} - ${summary.section}',
-                      style: const TextStyle(
-                        fontSize: 15,
+                      style: TextStyle(
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: selected ? Colors.white : AppColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Checkbox(
-                    value: selected,
-                    activeColor: AppColors.primaryMaroon,
-                    onChanged: (_) => onToggleSelected(),
-                  ),
-                ],
+                    Text(
+                      '${summary.studentCount} Students',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: selected ? Colors.white70 : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                summary.academicYear,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 84,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
                       summary.instructorName,
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? Colors.white : AppColors.textPrimary,
+                      ),
+                      textAlign: TextAlign.end,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.groups_outlined, size: 16, color: AppColors.primaryMaroon),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${summary.studentCount} student${summary.studentCount == 1 ? '' : 's'}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryMaroon,
+                    Text(
+                      'Instructor',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: selected ? Colors.white70 : AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

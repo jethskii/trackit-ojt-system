@@ -35,6 +35,13 @@ class AdminAuthService {
     return AdminAuthResult(token: token, admin: admin);
   }
 
+  /// Called on app restart (token restored from storage, no login response
+  /// in memory) so the sidebar can still show the real admin's name.
+  Future<Map<String, dynamic>> getMe() async {
+    final response = await client.get('/api/admin-auth/me');
+    return response['admin'] as Map<String, dynamic>;
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: _tokenKey);
     client.setToken(null);

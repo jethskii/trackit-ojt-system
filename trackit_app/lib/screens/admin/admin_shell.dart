@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/admin_classes_service.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
-import 'admin_classes_tab_navigator.dart';
+import 'admin_class_management_screen.dart';
 import 'admin_placeholder_screen.dart';
 
 class _AdminSection {
@@ -16,8 +15,8 @@ const _sections = [
   _AdminSection('Overview', Icons.dashboard_outlined),
   _AdminSection('Class Management', Icons.class_outlined),
   _AdminSection('HTE Directory', Icons.apartment_outlined),
-  _AdminSection('Archive', Icons.archive_outlined),
   _AdminSection('Announcements', Icons.campaign_outlined),
+  _AdminSection('Archive', Icons.archive_outlined),
   _AdminSection('Profile', Icons.account_circle_outlined),
 ];
 
@@ -27,9 +26,17 @@ const _sections = [
 /// AppBottomNav pattern, not an inconsistency.
 class AdminShell extends StatefulWidget {
   final ApiClient client;
+  final String adminName;
+  final String adminEmail;
   final VoidCallback onLoggedOut;
 
-  const AdminShell({super.key, required this.client, required this.onLoggedOut});
+  const AdminShell({
+    super.key,
+    required this.client,
+    required this.adminName,
+    required this.adminEmail,
+    required this.onLoggedOut,
+  });
 
   @override
   State<AdminShell> createState() => _AdminShellState();
@@ -37,9 +44,6 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   int _index = 1; // Class Management is the only built-out section so far.
-  late final AdminClassesService _classesService = HttpAdminClassesService(
-    widget.client,
-  );
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -66,16 +70,16 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     final pages = [
       const AdminPlaceholderScreen(title: 'Overview', icon: Icons.dashboard_outlined),
-      AdminClassesTabNavigator(classesService: _classesService),
+      AdminClassManagementScreen(client: widget.client),
       const AdminPlaceholderScreen(
         title: 'HTE Directory',
         icon: Icons.apartment_outlined,
       ),
-      const AdminPlaceholderScreen(title: 'Archive', icon: Icons.archive_outlined),
       const AdminPlaceholderScreen(
         title: 'Announcements',
         icon: Icons.campaign_outlined,
       ),
+      const AdminPlaceholderScreen(title: 'Archive', icon: Icons.archive_outlined),
       const AdminPlaceholderScreen(
         title: 'Profile',
         icon: Icons.account_circle_outlined,
@@ -87,30 +91,68 @@ class _AdminShellState extends State<AdminShell> {
       body: Row(
         children: [
           Container(
-            width: 240,
+            width: 250,
             color: AppColors.primaryMaroon,
             child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 24, 20, 24),
+                    padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
                     child: Row(
                       children: [
-                        Icon(Icons.shield_outlined, color: Colors.white, size: 22),
-                        SizedBox(width: 8),
+                        _LogoMark(),
+                        SizedBox(width: 10),
                         Text(
-                          'TRACKIT ADMIN',
+                          'TrackIT',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.white24,
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.adminName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Text(
+                                'Administrator',
+                                style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   for (var i = 0; i < _sections.length; i++)
                     _SidebarItem(
                       icon: _sections[i].icon,
@@ -146,6 +188,22 @@ class _AdminShellState extends State<AdminShell> {
   }
 }
 
+class _LogoMark extends StatelessWidget {
+  const _LogoMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
+}
+
 class _SidebarItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -164,7 +222,7 @@ class _SidebarItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
-        color: selected ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
+        color: selected ? Colors.white.withValues(alpha: 0.16) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -176,7 +234,7 @@ class _SidebarItem extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: selected ? AppColors.accentOrange : Colors.white70,
+                  color: selected ? Colors.white : Colors.white70,
                 ),
                 const SizedBox(width: 12),
                 Text(

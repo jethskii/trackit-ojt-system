@@ -88,7 +88,11 @@ class _AuthGateState extends State<AuthGate> {
       case SessionRole.instructor:
         return TeacherBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
       case SessionRole.admin:
-        return AdminBootstrap(client: _client, onLoggedOut: _handleLoggedOut);
+        return AdminBootstrap(
+          client: _client,
+          adminAuthService: _adminAuthService,
+          onLoggedOut: _handleLoggedOut,
+        );
       case null:
         return LoginScreen(
           authService: _authService,
