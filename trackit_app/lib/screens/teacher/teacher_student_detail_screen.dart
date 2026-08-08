@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/ojt_stage.dart';
 import '../../models/teacher_student_detail.dart';
+import '../../services/api_client.dart';
 import '../../services/teacher_students_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/back_nav_header.dart';
@@ -238,7 +239,7 @@ class _HeaderCard extends StatelessWidget {
             radius: 30,
             backgroundColor: AppColors.background,
             backgroundImage: student.avatarUrl != null
-                ? NetworkImage(student.avatarUrl!)
+                ? NetworkImage(ApiClient.resolveUrl(student.avatarUrl!))
                 : null,
             child: student.avatarUrl == null
                 ? Text(

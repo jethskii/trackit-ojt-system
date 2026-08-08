@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../models/company_details.dart';
 import '../../../models/student_profile.dart';
+import '../../../services/api_client.dart';
 import '../../../services/student_profile_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/app_header.dart';
@@ -10,15 +12,21 @@ import '../../../widgets/student/profile/profile_contact_row.dart';
 
 class ProfileScreen extends StatefulWidget {
   final StudentProfileService service;
+  final ValueChanged<StudentProfile> onProfileUpdated;
   final VoidCallback onOpenHelpCenter;
   final VoidCallback onOpenSettings;
+  final VoidCallback onOpenEditProfile;
+  final VoidCallback onOpenLoginHistory;
   final VoidCallback onLoggedOut;
 
   const ProfileScreen({
     super.key,
     required this.service,
+    required this.onProfileUpdated,
     required this.onOpenHelpCenter,
     required this.onOpenSettings,
+    required this.onOpenEditProfile,
+    required this.onOpenLoginHistory,
     required this.onLoggedOut,
   });
 
@@ -29,6 +37,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   StudentProfile? _profile;
   bool _loading = true;
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
@@ -43,6 +52,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _profile = profile;
       _loading = false;
     });
+  }
+
+  String _inferContentType(XFile file) {
+    if (file.mimeType != null) return file.mimeType!;
+    final ext = file.name.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    Navigator.of(context).pop(); // close the picker sheet
+    final picker = ImagePicker();
+    XFile? picked;
+    try {
+      picked = await picker.pickImage(source: source, maxWidth: 1024, imageQuality: 85);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}: $e',
+          ),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+      return;
+    }
+    if (picked == null) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final updated = await widget.service.uploadAvatar(
+        bytes: bytes,
+        fileName: picked.name,
+        contentType: _inferContentType(picked),
+      );
+      if (!mounted) return;
+      setState(() => _profile = updated);
+      widget.onProfileUpdated(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile picture updated.'),
+          backgroundColor: AppColors.successGreenText,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.statRedIcon),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not reach the server. Is it running?'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   void _openAvatarPicker() {
@@ -65,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: AppColors.primaryMaroon,
               ),
               title: const Text('Choose from Gallery'),
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () => _pickAndUploadAvatar(ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(
@@ -73,17 +150,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: AppColors.primaryMaroon,
               ),
               title: const Text('Take a Photo'),
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () => _pickAndUploadAvatar(ImageSource.camera),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Text(
-                'Photo upload needs camera/gallery access and file storage, '
-                'which aren\'t wired up yet -- coming once the backend '
-                'supports it.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -225,6 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _ProfileCard(
                         profile: _profile!,
+                        uploadingAvatar: _uploadingAvatar,
                         onEditAvatar: _openAvatarPicker,
                         onTapAdviser: _profile!.adviser == null
                             ? null
@@ -265,6 +335,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       child: Column(
                         children: [
+                          SettingsTile(
+                            icon: Icons.edit_outlined,
+                            title: 'Edit Profile',
+                            subtitle: 'Name, photo & contact info',
+                            onTap: widget.onOpenEditProfile,
+                          ),
+                          const Divider(height: 1),
+                          SettingsTile(
+                            icon: Icons.history,
+                            title: 'Login History',
+                            subtitle: 'Your account sign-in activity',
+                            onTap: widget.onOpenLoginHistory,
+                          ),
+                          const Divider(height: 1),
                           SettingsTile(
                             icon: Icons.help_outline,
                             title: 'Help Center',
@@ -359,6 +443,7 @@ class _ProfileSkeleton extends StatelessWidget {
 
 class _ProfileCard extends StatelessWidget {
   final StudentProfile profile;
+  final bool uploadingAvatar;
   final VoidCallback onEditAvatar;
   final VoidCallback? onTapAdviser;
   final VoidCallback? onTapCompany;
@@ -366,6 +451,7 @@ class _ProfileCard extends StatelessWidget {
 
   const _ProfileCard({
     required this.profile,
+    this.uploadingAvatar = false,
     required this.onEditAvatar,
     required this.onTapAdviser,
     required this.onTapCompany,
@@ -396,7 +482,7 @@ class _ProfileCard extends StatelessWidget {
                 radius: 42,
                 backgroundColor: AppColors.background,
                 backgroundImage: profile.avatarUrl != null
-                    ? NetworkImage(profile.avatarUrl!)
+                    ? NetworkImage(ApiClient.resolveUrl(profile.avatarUrl!))
                     : null,
                 child: profile.avatarUrl == null
                     ? Text(
@@ -411,6 +497,20 @@ class _ProfileCard extends StatelessWidget {
                       )
                     : null,
               ),
+              if (uploadingAvatar)
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black38,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
               Positioned(
                 right: -4,
                 bottom: -4,
@@ -418,7 +518,7 @@ class _ProfileCard extends StatelessWidget {
                   label: 'Change profile picture',
                   button: true,
                   child: InkWell(
-                    onTap: onEditAvatar,
+                    onTap: uploadingAvatar ? null : onEditAvatar,
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.all(9),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/teacher_weekly_report_row.dart';
+import '../../services/api_client.dart';
 import '../../services/teacher_weekly_reports_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/back_nav_header.dart';
@@ -130,7 +131,9 @@ class _StudentTile extends StatelessWidget {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: AppColors.background,
-                backgroundImage: student.avatarUrl != null ? NetworkImage(student.avatarUrl!) : null,
+                backgroundImage: student.avatarUrl != null
+                    ? NetworkImage(ApiClient.resolveUrl(student.avatarUrl!))
+                    : null,
                 child: student.avatarUrl == null
                     ? const Icon(Icons.person, color: AppColors.primaryMaroon, size: 18)
                     : null,

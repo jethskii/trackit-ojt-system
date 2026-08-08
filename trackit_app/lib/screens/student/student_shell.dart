@@ -3,6 +3,7 @@ import '../../models/attendance.dart';
 import '../../models/notification.dart';
 import '../../models/ojt_progress.dart';
 import '../../models/student.dart';
+import '../../models/student_profile.dart';
 import '../../services/api_client.dart';
 import '../../services/attendance_service.dart';
 import '../../services/notifications_service.dart';
@@ -40,6 +41,10 @@ class StudentShell extends StatefulWidget {
 
 class _StudentShellState extends State<StudentShell> {
   int _navIndex = 0;
+  // Mutable so Edit Profile's changes (name, avatar) show up immediately
+  // across the shell -- Home's profile card, the Documents tab, etc. --
+  // instead of only after the next full login.
+  late Student _student = widget.student;
   late final AttendanceService _attendanceService = HttpAttendanceService(
     widget.client,
   );
@@ -67,6 +72,10 @@ class _StudentShellState extends State<StudentShell> {
     setState(() => _navIndex = index);
   }
 
+  void _updateStudentFromProfile(StudentProfile profile) {
+    setState(() => _student = Student.fromProfile(profile));
+  }
+
   // Home has no nested Navigator of its own (unlike the tabs that do), so
   // "See All" on the announcement preview uses a plain root-level push.
   void _openAnnouncements() {
@@ -81,7 +90,7 @@ class _StudentShellState extends State<StudentShell> {
   Widget build(BuildContext context) {
     final pages = [
       StudentHomeView(
-        student: widget.student,
+        student: _student,
         progress: widget.initialProgress,
         announcementsService: _announcementsService,
         onOpenAnnouncements: _openAnnouncements,
@@ -92,7 +101,7 @@ class _StudentShellState extends State<StudentShell> {
         initialAttendance: widget.initialAttendance,
         initialHistory: widget.initialHistory,
       ),
-      DocumentsTabNavigator(student: widget.student, client: widget.client),
+      DocumentsTabNavigator(student: _student, client: widget.client),
       NotificationsScreen(
         service: _notificationsService,
         onNavigateTo: _goToTab,
@@ -100,6 +109,7 @@ class _StudentShellState extends State<StudentShell> {
       ProfileTabNavigator(
         client: widget.client,
         onLoggedOut: widget.onLoggedOut,
+        onProfileUpdated: _updateStudentFromProfile,
       ),
     ];
 

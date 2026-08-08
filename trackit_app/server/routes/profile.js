@@ -7,6 +7,8 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+const NAME_CHANGE_COOLDOWN_DAYS = 14;
+
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '..', 'uploads', 'avatars'),
   filename: (req, file, cb) => {
@@ -26,7 +28,7 @@ const upload = multer({
 router.get('/', async (req, res) => {
   try {
     const studentResult = await pool.query(
-      `SELECT name, email, course, section, student_number, year_level, avatar_url
+      `SELECT name, email, course, section, student_number, year_level, avatar_url, name_changed_at
        FROM students
        WHERE id = $1`,
       [req.studentId],
@@ -35,6 +37,12 @@ router.get('/', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
     const student = studentResult.rows[0];
+    const nameChangeAvailableAt = student.name_changed_at
+      ? new Date(
+          new Date(student.name_changed_at).getTime() +
+            NAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+        )
+      : null;
 
     const profileResult = await pool.query(
       `SELECT sp.phone,
@@ -54,6 +62,14 @@ router.get('/', async (req, res) => {
       success: true,
       profile: {
         fullName: student.name,
+        // null once the cooldown has elapsed (or the name was never
+        // changed) -- the Edit Profile screen uses this to show/hide the
+        // "you can change your name again on..." banner up front, not
+        // just after a rejected attempt.
+        nameChangeAvailableAt:
+          nameChangeAvailableAt && nameChangeAvailableAt > new Date()
+            ? nameChangeAvailableAt.toISOString()
+            : null,
         email: student.email,
         course: student.course,
         section: student.section,
@@ -104,15 +120,75 @@ router.get('/', async (req, res) => {
 
 router.patch('/', async (req, res) => {
   try {
-    const { phone, alternateEmail, address, emergencyContact, studentNumber, yearLevel } =
-      req.body;
+    const {
+      phone,
+      alternateEmail,
+      address,
+      emergencyContact,
+      studentNumber,
+      yearLevel,
+      fullName,
+    } = req.body;
 
+    // A name change is atomic with its own cooldown check: the eligibility
+    // check (no change within the last 14 days) and the write happen in
+    // the same statement, so it can't be bypassed by refreshing, logging
+    // out/in, another device, or calling the API directly -- a rejected
+    // request writes nothing and never resets the cooldown.
+    if (fullName !== undefined) {
+      const trimmedName = fullName.trim();
+      if (!trimmedName) {
+        return res.status(400).json({ success: false, message: 'Full name is required.' });
+      }
+
+      const renamed = await pool.query(
+        `UPDATE students
+         SET name = $1, name_changed_at = now(), updated_at = now()
+         WHERE id = $2 AND name != $1
+           AND (name_changed_at IS NULL
+             OR name_changed_at <= now() - INTERVAL '${NAME_CHANGE_COOLDOWN_DAYS} days')
+         RETURNING name`,
+        [trimmedName, req.studentId],
+      );
+
+      if (renamed.rows.length === 0) {
+        const current = (
+          await pool.query('SELECT name, name_changed_at FROM students WHERE id = $1', [
+            req.studentId,
+          ])
+        ).rows[0];
+
+        // Only an actual change (different from the current name) is
+        // subject to the cooldown -- resubmitting the same name is a
+        // silent no-op, not a rejection.
+        if (current.name !== trimmedName && current.name_changed_at) {
+          const availableAt = new Date(
+            new Date(current.name_changed_at).getTime() +
+              NAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+          );
+          if (availableAt > new Date()) {
+            return res.status(403).json({
+              success: false,
+              message: 'You recently changed your name.',
+              nameChangeAvailableAt: availableAt.toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    // COALESCE against the existing row so a partial update (e.g. saving
+    // just a name change) never blanks out fields the caller didn't send.
     await pool.query(
       `INSERT INTO student_profiles (student_id, phone, alternate_email, address, emergency_contact)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (student_id)
-       DO UPDATE SET phone = $2, alternate_email = $3, address = $4,
-         emergency_contact = $5, updated_at = now()`,
+       DO UPDATE SET
+         phone = COALESCE($2, student_profiles.phone),
+         alternate_email = COALESCE($3, student_profiles.alternate_email),
+         address = COALESCE($4, student_profiles.address),
+         emergency_contact = COALESCE($5, student_profiles.emergency_contact),
+         updated_at = now()`,
       [req.studentId, phone, alternateEmail, address, emergencyContact],
     );
 
@@ -131,6 +207,35 @@ router.patch('/', async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ success: false, message: 'Failed to update profile.' });
+  }
+});
+
+// Real login/logout history -- one row per token issued at register/login
+// (see utils/loginHistory.js), closed by POST /api/auth/logout. Never
+// synthesized: a page refresh reuses the existing token and creates
+// nothing here, so this is exactly the student's real session activity.
+router.get('/login-history', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, login_at, logout_at, user_agent
+       FROM login_history
+       WHERE student_id = $1
+       ORDER BY login_at DESC
+       LIMIT 50`,
+      [req.studentId],
+    );
+    res.json({
+      success: true,
+      sessions: result.rows.map((row) => ({
+        id: Number(row.id),
+        loginAt: row.login_at,
+        logoutAt: row.logout_at,
+        userAgent: row.user_agent,
+      })),
+    });
+  } catch (error) {
+    console.error('Get login history error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load login history.' });
   }
 });
 

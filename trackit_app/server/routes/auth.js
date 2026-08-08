@@ -1,7 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, requireAuth } = require('../middleware/auth');
+const { createLoginSession } = require('../utils/loginHistory');
 
 const router = express.Router();
 
@@ -86,7 +87,8 @@ router.post('/register', async (req, res) => {
       console.error('Notify instructor of new student error:', notifyError);
     }
 
-    const token = generateToken(student.id);
+    const sessionId = await createLoginSession(student.id, req.get('User-Agent'));
+    const token = generateToken(student.id, sessionId);
     res.status(201).json({ success: true, token, student });
   } catch (error) {
     console.error('Register error:', error);
@@ -117,12 +119,45 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    const token = generateToken(student.id);
+    const sessionId = await createLoginSession(student.id, req.get('User-Agent'));
+    const token = generateToken(student.id, sessionId);
     delete student.password_hash;
     res.json({ success: true, token, student });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ success: false, message: 'Login failed.' });
+  }
+});
+
+// Closes the session this token belongs to. A page refresh never hits
+// this (it just reuses the stored token), and it never touches other
+// sessions, so logging in on a second device doesn't get closed out by
+// logging out on the first.
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    if (req.sessionId) {
+      await pool.query(
+        `UPDATE login_history SET logout_at = now()
+         WHERE id = $1 AND student_id = $2 AND logout_at IS NULL`,
+        [req.sessionId, req.studentId],
+      );
+    } else {
+      // Token minted before session tracking existed -- best effort:
+      // close the most recent still-open session for this student.
+      await pool.query(
+        `UPDATE login_history SET logout_at = now()
+         WHERE id = (
+           SELECT id FROM login_history
+           WHERE student_id = $1 AND logout_at IS NULL
+           ORDER BY login_at DESC LIMIT 1
+         )`,
+        [req.studentId],
+      );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ success: false, message: 'Failed to log out.' });
   }
 });
 

@@ -1,4 +1,5 @@
 import '../models/company_details.dart';
+import '../models/login_history_entry.dart';
 import '../models/staff_contact.dart';
 import '../models/student_profile.dart';
 import 'api_client.dart';
@@ -6,11 +7,22 @@ import 'api_client.dart';
 abstract class StudentProfileService {
   Future<StudentProfile> getProfile();
 
-  /// Real photo upload needs image_picker/cropper, neither of which are
-  /// wired up in the UI yet -- this just updates the in-memory profile so
-  /// the rest of the app has a single place to swap in a real
-  /// implementation later.
-  Future<StudentProfile> updateAvatar(String avatarUrl);
+  Future<StudentProfile> uploadAvatar({
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  });
+
+  /// Saves editable profile fields. [fullName] is subject to a 14-day
+  /// cooldown enforced server-side -- throws [ApiException] (403) if a
+  /// change is attempted too soon; omit it to leave the name untouched
+  /// (never triggers the cooldown).
+  Future<StudentProfile> updateProfile({
+    String? fullName,
+    String? mobileNumber,
+  });
+
+  Future<List<LoginHistoryEntry>> getLoginHistory();
 
   /// Saves the student's self-reported company details (Confirm Company
   /// Details step). Also sets [StudentProfile.supervisor], since that form
@@ -44,10 +56,22 @@ class MockStudentProfileService implements StudentProfileService {
   Future<StudentProfile> getProfile() async => _profile;
 
   @override
-  Future<StudentProfile> updateAvatar(String avatarUrl) async {
-    _profile = _profile.copyWith(avatarUrl: avatarUrl);
+  Future<StudentProfile> uploadAvatar({
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    _profile = _profile.copyWith(avatarUrl: 'mock://avatar');
     return _profile;
   }
+
+  @override
+  Future<StudentProfile> updateProfile({String? fullName, String? mobileNumber}) async {
+    return _profile;
+  }
+
+  @override
+  Future<List<LoginHistoryEntry>> getLoginHistory() async => [];
 
   @override
   Future<StudentProfile> submitCompanyDetails(CompanyDetails details) async {
@@ -68,12 +92,43 @@ class HttpStudentProfileService implements StudentProfileService {
   }
 
   @override
-  Future<StudentProfile> updateAvatar(String avatarUrl) async {
-    // Not called from the UI yet -- there's no image_picker integration
-    // to produce real bytes for POST /api/profile/avatar (a multipart
-    // upload) to receive. Once that's wired up, this should take the
-    // picked image's bytes instead of a pre-existing URL string.
+  Future<StudentProfile> uploadAvatar({
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    await client.postMultipart(
+      '/api/profile/avatar',
+      fieldName: 'avatar',
+      fileBytes: bytes,
+      fileName: fileName,
+      contentType: contentType,
+    );
     return getProfile();
+  }
+
+  @override
+  Future<StudentProfile> updateProfile({
+    String? fullName,
+    String? mobileNumber,
+  }) async {
+    await client.patch(
+      '/api/profile',
+      body: {
+        if (fullName != null) 'fullName': fullName,
+        if (mobileNumber != null) 'phone': mobileNumber,
+      },
+    );
+    return getProfile();
+  }
+
+  @override
+  Future<List<LoginHistoryEntry>> getLoginHistory() async {
+    final response = await client.get('/api/profile/login-history');
+    final rows = response['sessions'] as List<dynamic>;
+    return rows
+        .map((row) => LoginHistoryEntry.fromJson(row as Map<String, dynamic>))
+        .toList();
   }
 
   @override

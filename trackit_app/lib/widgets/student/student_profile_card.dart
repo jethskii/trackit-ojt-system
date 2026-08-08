@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/student.dart';
+import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 
 class StudentProfileCard extends StatelessWidget {
@@ -32,7 +33,7 @@ class StudentProfileCard extends StatelessWidget {
                 radius: 26,
                 backgroundColor: AppColors.background,
                 backgroundImage: student.avatarUrl != null
-                    ? NetworkImage(student.avatarUrl!)
+                    ? NetworkImage(ApiClient.resolveUrl(student.avatarUrl!))
                     : null,
                 child: student.avatarUrl == null
                     ? Text(

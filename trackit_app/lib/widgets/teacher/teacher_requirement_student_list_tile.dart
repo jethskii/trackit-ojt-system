@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/teacher_requirement_student_summary.dart';
+import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 
 class TeacherRequirementStudentListTile extends StatelessWidget {
@@ -44,7 +45,7 @@ class TeacherRequirementStudentListTile extends StatelessWidget {
                 radius: 24,
                 backgroundColor: AppColors.background,
                 backgroundImage: student.avatarUrl != null
-                    ? NetworkImage(student.avatarUrl!)
+                    ? NetworkImage(ApiClient.resolveUrl(student.avatarUrl!))
                     : null,
                 child: student.avatarUrl == null
                     ? Text(

@@ -17,6 +17,11 @@ class StudentProfile {
   final String mobileNumber;
   final String? avatarUrl;
 
+  /// Null once the student is free to change their name again (or has
+  /// never changed it). Non-null means a 14-day cooldown is active --
+  /// enforced server-side, this is only used to inform the UI up front.
+  final DateTime? nameChangeAvailableAt;
+
   /// Null until the department assigns an adviser, or the student
   /// completes the Confirm Company Details step (which also sets
   /// [supervisor], since that form collects both together).
@@ -34,6 +39,7 @@ class StudentProfile {
     required this.email,
     required this.mobileNumber,
     this.avatarUrl,
+    this.nameChangeAvailableAt,
     this.adviser,
     this.company,
     this.supervisor,
@@ -50,6 +56,9 @@ class StudentProfile {
       email: json['email'] as String,
       mobileNumber: json['mobileNumber'] as String? ?? 'Not set',
       avatarUrl: json['avatarUrl'] as String?,
+      nameChangeAvailableAt: json['nameChangeAvailableAt'] != null
+          ? DateTime.parse(json['nameChangeAvailableAt'] as String)
+          : null,
       adviser: json['adviser'] != null
           ? StaffContact.fromJson(json['adviser'] as Map<String, dynamic>)
           : null,

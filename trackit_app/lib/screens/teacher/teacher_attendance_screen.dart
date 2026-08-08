@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../models/teacher_attendance_record.dart';
 import '../../models/teacher_correction_request.dart';
+import '../../services/api_client.dart';
 import '../../services/teacher_attendance_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/common/back_nav_header.dart';
@@ -267,7 +268,9 @@ class _RecordTile extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor: AppColors.background,
-            backgroundImage: record.avatarUrl != null ? NetworkImage(record.avatarUrl!) : null,
+            backgroundImage: record.avatarUrl != null
+                ? NetworkImage(ApiClient.resolveUrl(record.avatarUrl!))
+                : null,
             child: record.avatarUrl == null
                 ? const Icon(Icons.person, color: AppColors.primaryMaroon, size: 18)
                 : null,

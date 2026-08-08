@@ -5,7 +5,18 @@ import '../../../widgets/common/settings_section_header.dart';
 import '../../../widgets/common/settings_tile.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// Only the student side wires these to real screens (Edit Profile,
+  /// Login History) -- this screen is shared with the Teacher module
+  /// (see TeacherProfileTabNavigator), where they stay null and fall
+  /// back to the "coming soon" stub like every other tile here.
+  final VoidCallback? onOpenEditProfile;
+  final VoidCallback? onOpenLoginHistory;
+
+  const SettingsScreen({
+    super.key,
+    this.onOpenEditProfile,
+    this.onOpenLoginHistory,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -76,12 +87,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SettingsTile(
                         icon: Icons.edit_outlined,
                         title: 'Edit Profile',
-                        onTap: () => _stub('Edit Profile'),
+                        onTap: widget.onOpenEditProfile ?? () => _stub('Edit Profile'),
                       ),
                       SettingsTile(
                         icon: Icons.photo_camera_outlined,
                         title: 'Change Profile Picture',
-                        onTap: () => _stub('Profile picture upload'),
+                        onTap: widget.onOpenEditProfile ??
+                            () => _stub('Profile picture upload'),
                       ),
                       SettingsTile(
                         icon: Icons.lock_outline,
@@ -117,7 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SettingsTile(
                         icon: Icons.history,
                         title: 'Login History',
-                        onTap: () => _stub('Login History'),
+                        onTap: widget.onOpenLoginHistory ?? () => _stub('Login History'),
                       ),
                       SettingsTile(
                         icon: Icons.logout,

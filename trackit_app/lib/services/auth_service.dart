@@ -77,6 +77,14 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // Best-effort: closes the real login_history session server-side, but
+    // a failed request (offline, expired token) shouldn't block the user
+    // from logging out locally -- the token is cleared either way.
+    try {
+      await client.post('/api/auth/logout');
+    } catch (_) {
+      // Ignore -- still proceed to clear the local token below.
+    }
     await _storage.delete(key: _tokenKey);
     client.setToken(null);
   }

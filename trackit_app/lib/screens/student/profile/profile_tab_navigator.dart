@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
+import '../../../models/student_profile.dart';
 import '../../../services/api_client.dart';
 import '../../../services/student_profile_service.dart';
+import 'edit_profile_screen.dart';
 import 'help_center_screen.dart';
+import 'login_history_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 
 /// Mirrors DocumentsTabNavigator: owns a nested Navigator so pushing into
-/// Help Center or Settings keeps StudentShell's bottom nav visible.
+/// Help Center, Settings, Edit Profile, or Login History keeps
+/// StudentShell's bottom nav visible.
 class ProfileTabNavigator extends StatefulWidget {
   final ApiClient client;
   final VoidCallback onLoggedOut;
+  final ValueChanged<StudentProfile> onProfileUpdated;
 
   const ProfileTabNavigator({
     super.key,
     required this.client,
     required this.onLoggedOut,
+    required this.onProfileUpdated,
   });
 
   @override
@@ -44,16 +50,34 @@ class _ProfileTabNavigatorState extends State<ProfileTabNavigator> {
               page = const HelpCenterScreen();
               break;
             case '/settings':
-              page = const SettingsScreen();
+              page = SettingsScreen(
+                onOpenEditProfile: () => _navigatorKey.currentState?.pushNamed('/edit-profile'),
+                onOpenLoginHistory: () =>
+                    _navigatorKey.currentState?.pushNamed('/login-history'),
+              );
+              break;
+            case '/edit-profile':
+              page = EditProfileScreen(
+                service: _profileService,
+                onProfileUpdated: widget.onProfileUpdated,
+              );
+              break;
+            case '/login-history':
+              page = LoginHistoryScreen(service: _profileService);
               break;
             case '/':
             default:
               page = ProfileScreen(
                 service: _profileService,
+                onProfileUpdated: widget.onProfileUpdated,
                 onOpenHelpCenter: () =>
                     _navigatorKey.currentState?.pushNamed('/help-center'),
                 onOpenSettings: () =>
                     _navigatorKey.currentState?.pushNamed('/settings'),
+                onOpenEditProfile: () =>
+                    _navigatorKey.currentState?.pushNamed('/edit-profile'),
+                onOpenLoginHistory: () =>
+                    _navigatorKey.currentState?.pushNamed('/login-history'),
                 onLoggedOut: widget.onLoggedOut,
               );
           }
