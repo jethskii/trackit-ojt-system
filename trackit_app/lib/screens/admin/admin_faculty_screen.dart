@@ -11,7 +11,7 @@ import 'admin_instructor_detail_panel.dart';
 // should feel like the same screen, not two differently-tuned layouts.
 const _wideBreakpoint = 720.0;
 
-/// The Faculty/Instructors side of Class Management -- same list+detail
+/// The Faculty/Instructors side of the Admin Overview -- same list+detail
 /// structure and visual style as the Sections (Students) overview it
 /// sits alongside.
 class AdminFacultyScreen extends StatefulWidget {

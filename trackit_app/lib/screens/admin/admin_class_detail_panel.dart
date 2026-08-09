@@ -15,7 +15,7 @@ const int _pageSize = 10;
 // Below this width the info cards wrap to a single column instead of a row.
 const _cardsWideBreakpoint = 640.0;
 
-/// Embedded in AdminClassManagementScreen's right-hand pane (not pushed as
+/// Embedded in AdminOverviewScreen's right-hand pane (not pushed as
 /// a route) -- a ValueKey(classId) on the caller's side forces a fresh
 /// State whenever the selected section changes, so this can stay a simple
 /// "load once in initState" widget instead of watching for id changes.
