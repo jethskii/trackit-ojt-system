@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import 'admin_announcements_screen.dart';
+import 'admin_archive_screen.dart';
 import 'admin_class_management_screen.dart';
 import 'admin_hte_directory_screen.dart';
 import 'admin_placeholder_screen.dart';
@@ -163,7 +164,7 @@ class _AdminShellState extends State<AdminShell> {
       AdminClassManagementScreen(client: widget.client),
       AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),
-      const AdminPlaceholderScreen(title: 'Archive', icon: Icons.archive_outlined),
+      AdminArchiveScreen(client: widget.client),
       const AdminPlaceholderScreen(
         title: 'Profile',
         icon: Icons.account_circle_outlined,
