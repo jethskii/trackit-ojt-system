@@ -1,11 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../models/custom_requirement.dart';
-import '../../../models/ojt_requirement_doc.dart';
+import '../../../services/api_client.dart';
 import '../../../services/custom_requirements_service.dart';
 import '../../../utils/app_colors.dart';
+import '../../../utils/attachment_launcher.dart';
+import '../../../utils/requirement_file_types.dart';
 import '../../../widgets/common/back_nav_header.dart';
 import '../../../widgets/common/empty_state_view.dart';
-import '../../../widgets/common/mock_file_picker_sheet.dart';
 import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/requirement_doc_tile.dart';
 
@@ -44,41 +46,74 @@ class _AdditionalRequirementsScreenState
   }
 
   Future<void> _upload(CustomRequirement requirement) async {
-    final fileName = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => MockFilePickerSheet(label: requirement.name),
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: requirementFileExtensions,
+      withData: true,
     );
-    if (fileName == null || !mounted) return;
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.single;
+    if (file.bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not read that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+      return;
+    }
 
     setState(() => _uploadingId = requirement.id);
-    final requirements = await widget.service.submitRequirement(
-      requirementId: requirement.id,
-      fileName: fileName,
-    );
-    if (!mounted) return;
-    setState(() {
-      _requirements = requirements;
-      _uploadingId = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fileName submitted for ${requirement.name}.')),
-    );
+    try {
+      final requirements = await widget.service.submitRequirement(
+        requirementId: requirement.id,
+        fileBytes: file.bytes!,
+        fileName: file.name,
+        contentType: requirementFileContentType(file.extension),
+      );
+      if (!mounted) return;
+      setState(() {
+        _requirements = requirements;
+        _uploadingId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${file.name} submitted for ${requirement.name}.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.statRedIcon),
+      );
+    }
   }
 
-  void _viewFile(CustomRequirement requirement) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(requirement.name),
-        content: Text('Uploaded file: ${requirement.uploadedFileName ?? 'N/A'}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _viewFile(CustomRequirement requirement) async {
+    final url = requirement.uploadedFileUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    }
+  }
+
+  Future<void> _downloadTemplate(CustomRequirement requirement) async {
+    final url = requirement.templateUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open the template.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    }
   }
 
   @override
@@ -121,6 +156,9 @@ class _AdditionalRequirementsScreenState
                                   document: requirement.toDoc(),
                                   onUpload: () => _upload(requirement),
                                   onView: () => _viewFile(requirement),
+                                  onDownloadTemplate: requirement.templateUrl != null
+                                      ? () => _downloadTemplate(requirement)
+                                      : null,
                                 ),
                       ],
                     ),

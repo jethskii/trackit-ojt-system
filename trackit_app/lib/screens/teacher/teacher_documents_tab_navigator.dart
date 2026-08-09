@@ -9,6 +9,7 @@ import 'teacher_attendance_screen.dart';
 import 'teacher_custom_requirements_screen.dart';
 import 'teacher_documents_hub_screen.dart';
 import 'teacher_official_requirements_screen.dart';
+import 'teacher_official_templates_screen.dart';
 import 'teacher_requirement_review_screen.dart';
 import 'teacher_weekly_report_detail_screen.dart';
 import 'teacher_weekly_reports_screen.dart';
@@ -93,6 +94,9 @@ class _TeacherDocumentsTabNavigatorState
                     .pushNamed<String>('/add-requirement'),
               );
               break;
+            case '/official-templates':
+              page = TeacherOfficialTemplatesScreen(service: _requirementsService);
+              break;
             case '/add-requirement':
               page = CreateCustomRequirementScreen(
                 requirementsService: _requirementsService,
@@ -128,6 +132,8 @@ class _TeacherDocumentsTabNavigatorState
                       _navigatorKey.currentState?.pushNamed('/additional-requirements'),
                   onAddNewRequirement: () =>
                       _navigatorKey.currentState?.pushNamed('/add-requirement'),
+                  onOpenOfficialTemplates: () =>
+                      _navigatorKey.currentState?.pushNamed('/official-templates'),
                 );
               }
           }

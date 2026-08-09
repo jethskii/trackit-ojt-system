@@ -1,10 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../models/ojt_requirement_doc.dart';
 import '../../../models/ojt_requirement_phase.dart';
+import '../../../services/api_client.dart';
 import '../../../services/ojt_requirements_service.dart';
 import '../../../utils/app_colors.dart';
+import '../../../utils/attachment_launcher.dart';
+import '../../../utils/requirement_file_types.dart';
 import '../../../widgets/common/back_nav_header.dart';
-import '../../../widgets/common/mock_file_picker_sheet.dart';
 import '../../../widgets/common/skeleton_list_tile.dart';
 import '../../../widgets/student/documents/requirement_doc_tile.dart';
 
@@ -43,54 +46,76 @@ class _PhaseRequirementsScreenState extends State<PhaseRequirementsScreen> {
     });
   }
 
-  Future<void> _simulateUpload(OjtRequirementDoc document) async {
-    final fileName = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => MockFilePickerSheet(label: document.name),
+  Future<void> _upload(OjtRequirementDoc document) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: requirementFileExtensions,
+      withData: true,
     );
-    if (fileName == null || !mounted) return;
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.single;
+    if (file.bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not read that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+      return;
+    }
 
     setState(() => _uploadingDocId = document.id);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-
-    final phases = await widget.service.submitDocument(
-      phaseId: widget.phaseId,
-      documentId: document.id,
-      fileName: fileName,
-    );
-    if (!mounted) return;
-    setState(() {
-      _phase = phases.firstWhere((p) => p.id == widget.phaseId);
-      _uploadingDocId = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fileName submitted for ${document.name}.')),
-    );
+    try {
+      final phases = await widget.service.submitDocument(
+        phaseId: widget.phaseId,
+        documentId: document.id,
+        fileBytes: file.bytes!,
+        fileName: file.name,
+        contentType: requirementFileContentType(file.extension),
+      );
+      if (!mounted) return;
+      setState(() {
+        _phase = phases.firstWhere((p) => p.id == widget.phaseId);
+        _uploadingDocId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${file.name} submitted for ${document.name}.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingDocId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.statRedIcon),
+      );
+    }
   }
 
-  void _viewFile(OjtRequirementDoc document) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(document.name),
-        content: Text('Uploaded file: ${document.uploadedFileName ?? 'N/A'}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _viewFile(OjtRequirementDoc document) async {
+    final url = document.uploadedFileUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    }
   }
 
-  void _downloadTemplate(OjtRequirementDoc document) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${document.name} template download is coming soon.'),
-      ),
-    );
+  Future<void> _downloadTemplate(OjtRequirementDoc document) async {
+    final url = document.templateUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open the template.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    }
   }
 
   @override
@@ -124,9 +149,9 @@ class _PhaseRequirementsScreenState extends State<PhaseRequirementsScreen> {
                               )
                             : RequirementDocTile(
                                 document: document,
-                                onUpload: () => _simulateUpload(document),
+                                onUpload: () => _upload(document),
                                 onView: () => _viewFile(document),
-                                onDownloadTemplate: document.hasTemplate
+                                onDownloadTemplate: document.templateUrl != null
                                     ? () => _downloadTemplate(document)
                                     : null,
                               ),

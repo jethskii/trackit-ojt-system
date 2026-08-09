@@ -4,6 +4,7 @@ const path = require('path');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
+const { requirementFileFilter } = require('../utils/requirementFileTypes');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -15,7 +16,11 @@ const storage = multer.diskStorage({
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: requirementFileFilter,
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -43,9 +48,13 @@ router.get('/', async (req, res) => {
             name: template.name,
             description: template.description,
             hasTemplate: template.has_template,
+            templateUrl: template.template_url,
+            templateName: template.template_name,
             status: submission ? submission.status : 'missing',
             uploadedFileName: submission ? submission.uploaded_file_name : null,
+            uploadedFileUrl: submission ? submission.uploaded_file_url : null,
             deadline: submission ? submission.deadline : null,
+            submittedAt: submission ? submission.submitted_at : null,
             remarks: submission ? submission.remarks : null,
           };
         });
@@ -81,10 +90,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Accepts either a real multipart file, or a JSON { fileName } body for now
-// -- the Flutter app doesn't have a real file_picker plugin wired up yet
-// (see MockFilePickerSheet), so this still records a real, persisted
-// submission (status + file name) even without real file bytes attached.
+// Real multipart file upload -- the JSON { fileName } fallback stays as a
+// defensive no-op path, but the Flutter app always sends real file bytes.
 router.post('/:templateId/submit', upload.single('file'), async (req, res) => {
   try {
     const templateId = Number(req.params.templateId);

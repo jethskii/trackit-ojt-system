@@ -100,6 +100,26 @@ class RequirementDocTile extends StatelessWidget {
                 ),
               ],
             ),
+            if (document.submittedAt != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Submitted ${DateFormat('MMM d, yyyy h:mm a').format(document.submittedAt!.toLocal())}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
           if (document.remarks != null && document.remarks!.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -158,11 +178,11 @@ class RequirementDocTile extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
-              if (document.hasTemplate)
+              if (document.templateUrl != null)
                 OutlinedButton.icon(
                   onPressed: onDownloadTemplate,
                   icon: const Icon(Icons.download_outlined, size: 16),
-                  label: const Text('Template'),
+                  label: const Text('Download Template'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textSecondary,
                     side: const BorderSide(color: AppColors.chipGrayBg),

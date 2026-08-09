@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../models/instructor_class.dart';
@@ -5,6 +6,7 @@ import '../../services/api_client.dart';
 import '../../services/teacher_classes_service.dart';
 import '../../services/teacher_requirements_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/requirement_file_types.dart';
 import '../../widgets/common/back_nav_header.dart';
 
 /// "+ Add New Requirement" -- an instructor-created Additional
@@ -36,6 +38,7 @@ class _CreateCustomRequirementScreenState
   DateTime? _deadline;
   bool _loadingClasses = true;
   bool _saving = false;
+  PlatformFile? _templateFile;
 
   @override
   void initState() {
@@ -58,6 +61,26 @@ class _CreateCustomRequirementScreenState
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickTemplate() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: requirementFileExtensions,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.single;
+    if (file.bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not read that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+      return;
+    }
+    setState(() => _templateFile = file);
   }
 
   Future<void> _pickDeadline() async {
@@ -88,6 +111,9 @@ class _CreateCustomRequirementScreenState
         description: _descriptionController.text.trim(),
         deadline: _deadline,
         classIds: _selectedClassIds.toList(),
+        templateBytes: _templateFile?.bytes,
+        templateFileName: _templateFile?.name,
+        templateContentType: requirementFileContentType(_templateFile?.extension),
       );
       if (!mounted) return;
       Navigator.of(context).pop('Requirement posted.');
@@ -137,6 +163,25 @@ class _CreateCustomRequirementScreenState
                     decoration: const InputDecoration(
                       labelText: 'Description',
                       alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.description_outlined, color: AppColors.primaryMaroon),
+                    title: Text(
+                      _templateFile == null
+                          ? 'No official template attached'
+                          : 'Template: ${_templateFile!.name}',
+                    ),
+                    subtitle: const Text(
+                      'Optional -- students will be able to download this before '
+                      'submitting their own copy.',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    trailing: TextButton(
+                      onPressed: _pickTemplate,
+                      child: Text(_templateFile == null ? 'Attach' : 'Replace'),
                     ),
                   ),
                   const SizedBox(height: 12),

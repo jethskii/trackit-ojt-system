@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/ojt_requirement_doc.dart';
+import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/attachment_launcher.dart';
 import '../common/status_badge.dart';
 
 /// A single document as the reviewing instructor sees it: status, the
@@ -43,22 +45,18 @@ class TeacherRequirementDocReviewTile extends StatelessWidget {
     }
   }
 
-  void _viewFile(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(name),
-        content: uploadedFileUrl != null
-            ? Text('Uploaded file: ${uploadedFileName ?? uploadedFileUrl}')
-            : Text('Uploaded file: ${uploadedFileName ?? 'N/A'}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _viewFile(BuildContext context) async {
+    final url = uploadedFileUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open that file.'),
+          backgroundColor: AppColors.statRedIcon,
+        ),
+      );
+    }
   }
 
   Future<void> _requestReupload(BuildContext context) async {

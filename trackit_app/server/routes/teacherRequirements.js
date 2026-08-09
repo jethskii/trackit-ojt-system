@@ -1,10 +1,29 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
 const pool = require('../db');
 const { requireInstructorAuth } = require('../middleware/instructorAuth');
 const { loadAssignedStudents } = require('./teacherStudents');
+const { requirementFileFilter } = require('../utils/requirementFileTypes');
 
 const router = express.Router();
 router.use(requireInstructorAuth);
+
+// Separate destination from student submissions (uploads/requirements) so
+// the two are never confused on disk -- these are the official template
+// files instructors publish, not anything a student uploaded.
+const templateStorage = multer.diskStorage({
+  destination: path.join(__dirname, '..', 'uploads', 'requirements', 'templates'),
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${path.extname(file.originalname)}`);
+  },
+});
+const uploadTemplate = multer({
+  storage: templateStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: requirementFileFilter,
+});
 
 // A document counts toward "Completed" once approved, "Needs Review" once
 // submitted and awaiting a decision, everything else ("missing", "pending",
@@ -14,6 +33,83 @@ function bucketOf(status) {
   if (status === 'submitted') return 'needsReview';
   return 'pending';
 }
+
+// The Official Requirements catalog (phases + templates) with each
+// template's current file, if any -- for the instructor's "Manage
+// Templates" screen. Unlike Additional Requirements, this catalog is
+// global/shared across the whole department rather than per-instructor,
+// matching how every other Official Requirements endpoint already treats
+// ojt_requirement_templates as one shared set.
+router.get('/templates', async (req, res) => {
+  try {
+    const [phasesResult, templatesResult] = await Promise.all([
+      pool.query('SELECT * FROM ojt_requirement_phases ORDER BY order_index ASC'),
+      pool.query('SELECT * FROM ojt_requirement_templates ORDER BY phase_id, sort_order ASC'),
+    ]);
+    const phases = phasesResult.rows.map((phase) => ({
+      id: Number(phase.id),
+      order: phase.order_index,
+      title: phase.title,
+      description: phase.description,
+      templates: templatesResult.rows
+        .filter((t) => t.phase_id === phase.id)
+        .map((t) => ({
+          id: Number(t.id),
+          name: t.name,
+          description: t.description,
+          hasTemplate: t.has_template,
+          templateUrl: t.template_url,
+          templateName: t.template_name,
+        })),
+    }));
+    res.json({ success: true, phases });
+  } catch (error) {
+    console.error('Get requirement templates error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load templates.' });
+  }
+});
+
+// Upload or replace the template file for an Official Requirement.
+// Publishing this affects every student department-wide, same as the
+// rest of the Official Requirements catalog.
+router.post('/templates/:templateId/template', uploadTemplate.single('template'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded (pdf/doc/docx/xls/xlsx only).',
+      });
+    }
+    const templateId = Number(req.params.templateId);
+    const templateUrl = `/uploads/requirements/templates/${req.file.filename}`;
+
+    const updated = await pool.query(
+      `UPDATE ojt_requirement_templates
+       SET template_url = $1, template_name = $2, has_template = true
+       WHERE id = $3
+       RETURNING id, name, description, has_template, template_url, template_name`,
+      [templateUrl, req.file.originalname, templateId],
+    );
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Requirement not found.' });
+    }
+    const row = updated.rows[0];
+    res.json({
+      success: true,
+      template: {
+        id: Number(row.id),
+        name: row.name,
+        description: row.description,
+        hasTemplate: row.has_template,
+        templateUrl: row.template_url,
+        templateName: row.template_name,
+      },
+    });
+  } catch (error) {
+    console.error('Upload requirement template error:', error);
+    res.status(500).json({ success: false, message: 'Failed to upload template.' });
+  }
+});
 
 // Every assigned student's Official Requirements progress, for the
 // "OJT Requirements" student list. Official-only (custom requirements are
@@ -344,9 +440,18 @@ router.get('/custom', async (req, res) => {
   }
 });
 
-router.post('/custom', async (req, res) => {
+// Multipart so an optional template file can ride along with creation --
+// classIds arrives as a JSON-encoded string (multipart fields are always
+// strings, unlike a JSON body) rather than a real array.
+router.post('/custom', uploadTemplate.single('template'), async (req, res) => {
   try {
-    const { title, description, deadline, classIds } = req.body;
+    const { title, description, deadline } = req.body;
+    let classIds;
+    try {
+      classIds = JSON.parse(req.body.classIds || '[]');
+    } catch {
+      return res.status(400).json({ success: false, message: 'classIds must be a JSON array.' });
+    }
     if (!title || !Array.isArray(classIds) || classIds.length === 0) {
       return res.status(400).json({
         success: false,
@@ -362,9 +467,13 @@ router.post('/custom', async (req, res) => {
       return res.status(400).json({ success: false, message: 'One or more target sections are invalid.' });
     }
 
+    const templateUrl = req.file ? `/uploads/requirements/templates/${req.file.filename}` : null;
+    const templateName = req.file ? req.file.originalname : null;
+
     const inserted = await pool.query(
-      'INSERT INTO custom_requirements (instructor_id, title, description, deadline) VALUES ($1, $2, $3, $4) RETURNING id',
-      [req.instructorId, title.trim(), (description || '').trim(), deadline || null],
+      `INSERT INTO custom_requirements (instructor_id, title, description, deadline, template_url, template_name)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [req.instructorId, title.trim(), (description || '').trim(), deadline || null, templateUrl, templateName],
     );
     const requirementId = inserted.rows[0].id;
 
@@ -382,6 +491,40 @@ router.post('/custom', async (req, res) => {
   } catch (error) {
     console.error('Create custom requirement error:', error);
     res.status(500).json({ success: false, message: 'Failed to create additional requirement.' });
+  }
+});
+
+// Upload or replace the template file for an existing Additional
+// Requirement this instructor owns.
+router.post('/custom/:id/template', uploadTemplate.single('template'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded (pdf/doc/docx/xls/xlsx only).',
+      });
+    }
+    const requirementId = Number(req.params.id);
+    const templateUrl = `/uploads/requirements/templates/${req.file.filename}`;
+
+    const updated = await pool.query(
+      `UPDATE custom_requirements
+       SET template_url = $1, template_name = $2
+       WHERE id = $3 AND instructor_id = $4
+       RETURNING id`,
+      [templateUrl, req.file.originalname, requirementId, req.instructorId],
+    );
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Requirement not found.' });
+    }
+
+    const full = await pool.query(`${CUSTOM_WITH_TARGETS} WHERE cr.id = $1 GROUP BY cr.id`, [
+      requirementId,
+    ]);
+    res.json({ success: true, requirement: toCustomRequirementJson(full.rows[0]) });
+  } catch (error) {
+    console.error('Upload custom requirement template error:', error);
+    res.status(500).json({ success: false, message: 'Failed to upload template.' });
   }
 });
 

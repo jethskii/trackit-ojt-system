@@ -12,6 +12,7 @@ class TeacherDocumentsHubScreen extends StatelessWidget {
   final VoidCallback onOpenWeeklyReports;
   final VoidCallback onOpenAdditionalRequirements;
   final VoidCallback onAddNewRequirement;
+  final VoidCallback onOpenOfficialTemplates;
 
   const TeacherDocumentsHubScreen({
     super.key,
@@ -21,6 +22,7 @@ class TeacherDocumentsHubScreen extends StatelessWidget {
     required this.onOpenWeeklyReports,
     required this.onOpenAdditionalRequirements,
     required this.onAddNewRequirement,
+    required this.onOpenOfficialTemplates,
   });
 
   @override
@@ -70,6 +72,13 @@ class TeacherDocumentsHubScreen extends StatelessWidget {
                         title: 'Official Requirements',
                         subtitle: 'Submission list, review by student',
                         onTap: onOpenOfficialRequirements,
+                      ),
+                      const Divider(height: 1),
+                      _HubTile(
+                        icon: Icons.description_outlined,
+                        title: 'Requirement Templates',
+                        subtitle: 'Upload/replace official form templates',
+                        onTap: onOpenOfficialTemplates,
                       ),
                       const Divider(height: 1),
                       _HubTile(

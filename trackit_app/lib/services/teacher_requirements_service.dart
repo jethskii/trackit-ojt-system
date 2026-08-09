@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import '../models/custom_requirement_target.dart';
 import '../models/teacher_custom_requirement_submission.dart';
+import '../models/teacher_official_template.dart';
 import '../models/teacher_requirement_phase.dart';
 import '../models/teacher_requirement_student_summary.dart';
 import 'api_client.dart';
@@ -43,6 +46,27 @@ abstract class TeacherRequirementsService {
     required String description,
     DateTime? deadline,
     required List<int> classIds,
+    List<int>? templateBytes,
+    String? templateFileName,
+    String? templateContentType,
+  });
+
+  Future<void> uploadCustomRequirementTemplate({
+    required int requirementId,
+    required List<int> templateBytes,
+    required String templateFileName,
+    required String templateContentType,
+  });
+
+  /// The Official Requirements catalog (phases + templates), for the
+  /// "Manage Templates" screen -- not tied to any one student.
+  Future<List<TeacherOfficialTemplatePhase>> getOfficialTemplates();
+
+  Future<void> uploadOfficialTemplate({
+    required int templateId,
+    required List<int> templateBytes,
+    required String templateFileName,
+    required String templateContentType,
   });
 }
 
@@ -123,15 +147,63 @@ class HttpTeacherRequirementsService implements TeacherRequirementsService {
     required String description,
     DateTime? deadline,
     required List<int> classIds,
+    List<int>? templateBytes,
+    String? templateFileName,
+    String? templateContentType,
   }) async {
-    await client.post(
+    await client.postMultipart(
       '/api/teacher/requirements/custom',
-      body: {
+      fieldName: 'template',
+      fileBytes: templateBytes,
+      fileName: templateFileName,
+      contentType: templateContentType ?? 'application/octet-stream',
+      fields: {
         'title': title,
         'description': description,
-        'deadline': deadline?.toIso8601String().substring(0, 10),
-        'classIds': classIds,
+        if (deadline != null) 'deadline': deadline.toIso8601String().substring(0, 10),
+        'classIds': jsonEncode(classIds),
       },
+    );
+  }
+
+  @override
+  Future<void> uploadCustomRequirementTemplate({
+    required int requirementId,
+    required List<int> templateBytes,
+    required String templateFileName,
+    required String templateContentType,
+  }) async {
+    await client.postMultipart(
+      '/api/teacher/requirements/custom/$requirementId/template',
+      fieldName: 'template',
+      fileBytes: templateBytes,
+      fileName: templateFileName,
+      contentType: templateContentType,
+    );
+  }
+
+  @override
+  Future<List<TeacherOfficialTemplatePhase>> getOfficialTemplates() async {
+    final response = await client.get('/api/teacher/requirements/templates');
+    final rows = response['phases'] as List<dynamic>;
+    return rows
+        .map((row) => TeacherOfficialTemplatePhase.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<void> uploadOfficialTemplate({
+    required int templateId,
+    required List<int> templateBytes,
+    required String templateFileName,
+    required String templateContentType,
+  }) async {
+    await client.postMultipart(
+      '/api/teacher/requirements/templates/$templateId/template',
+      fieldName: 'template',
+      fileBytes: templateBytes,
+      fileName: templateFileName,
+      contentType: templateContentType,
     );
   }
 }

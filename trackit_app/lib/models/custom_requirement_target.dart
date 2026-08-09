@@ -26,6 +26,8 @@ class CustomRequirementDefinition {
   final String title;
   final String description;
   final DateTime? deadline;
+  final String? templateUrl;
+  final String? templateName;
   final List<CustomRequirementTarget> targets;
   final DateTime createdAt;
 
@@ -34,6 +36,8 @@ class CustomRequirementDefinition {
     required this.title,
     required this.description,
     this.deadline,
+    this.templateUrl,
+    this.templateName,
     required this.targets,
     required this.createdAt,
   });
@@ -44,6 +48,8 @@ class CustomRequirementDefinition {
       title: json['title'] as String,
       description: json['description'] as String? ?? '',
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline'] as String) : null,
+      templateUrl: json['template_url'] as String?,
+      templateName: json['template_name'] as String?,
       targets: (json['targets'] as List<dynamic>)
           .map((t) => CustomRequirementTarget.fromJson(t as Map<String, dynamic>))
           .toList(),

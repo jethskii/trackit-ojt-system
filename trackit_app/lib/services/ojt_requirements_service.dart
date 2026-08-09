@@ -14,7 +14,9 @@ abstract class OjtRequirementsService {
   Future<List<OjtRequirementPhase>> submitDocument({
     required String phaseId,
     required String documentId,
+    required List<int> fileBytes,
     required String fileName,
+    required String contentType,
   });
 }
 
@@ -36,14 +38,16 @@ class HttpOjtRequirementsService implements OjtRequirementsService {
   Future<List<OjtRequirementPhase>> submitDocument({
     required String phaseId,
     required String documentId,
+    required List<int> fileBytes,
     required String fileName,
+    required String contentType,
   }) async {
-    // No real file_picker plugin yet (see MockFilePickerSheet) -- the
-    // server accepts this as a JSON { fileName } submission until real
-    // file bytes are wired up.
-    await client.post(
+    await client.postMultipart(
       '/api/requirements/$documentId/submit',
-      body: {'fileName': fileName},
+      fieldName: 'file',
+      fileBytes: fileBytes,
+      fileName: fileName,
+      contentType: contentType,
     );
     return getPhases();
   }
@@ -66,7 +70,9 @@ class MockOjtRequirementsService implements OjtRequirementsService {
   Future<List<OjtRequirementPhase>> submitDocument({
     required String phaseId,
     required String documentId,
+    required List<int> fileBytes,
     required String fileName,
+    required String contentType,
   }) async {
     _phases = _phases.map((phase) {
       if (phase.id != phaseId) return phase;

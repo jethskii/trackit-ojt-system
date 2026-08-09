@@ -7,11 +7,13 @@ class OjtRequirementDoc {
   final RequirementDocStatus status;
   final DateTime? deadline;
   final bool hasTemplate;
+  final String? templateUrl;
+  final String? templateName;
   final String? uploadedFileName;
+  final String? uploadedFileUrl;
+  final DateTime? submittedAt;
 
-  /// Instructor feedback explaining a rejection/re-upload request. There's
-  /// no Instructor module yet to actually write these, so this is always
-  /// null for now -- the field and its UI are ready for when that exists.
+  /// Instructor feedback explaining a rejection/re-upload request.
   final String? remarks;
 
   const OjtRequirementDoc({
@@ -21,7 +23,11 @@ class OjtRequirementDoc {
     required this.status,
     this.deadline,
     this.hasTemplate = false,
+    this.templateUrl,
+    this.templateName,
     this.uploadedFileName,
+    this.uploadedFileUrl,
+    this.submittedAt,
     this.remarks,
   });
 
@@ -38,7 +44,13 @@ class OjtRequirementDoc {
           ? DateTime.parse(json['deadline'] as String)
           : null,
       hasTemplate: json['hasTemplate'] as bool? ?? false,
+      templateUrl: json['templateUrl'] as String?,
+      templateName: json['templateName'] as String?,
       uploadedFileName: json['uploadedFileName'] as String?,
+      uploadedFileUrl: json['uploadedFileUrl'] as String?,
+      submittedAt: json['submittedAt'] != null
+          ? DateTime.parse(json['submittedAt'] as String)
+          : null,
       remarks: json['remarks'] as String?,
     );
   }
@@ -46,6 +58,8 @@ class OjtRequirementDoc {
   OjtRequirementDoc copyWith({
     RequirementDocStatus? status,
     String? uploadedFileName,
+    String? uploadedFileUrl,
+    DateTime? submittedAt,
   }) {
     return OjtRequirementDoc(
       id: id,
@@ -54,7 +68,11 @@ class OjtRequirementDoc {
       status: status ?? this.status,
       deadline: deadline,
       hasTemplate: hasTemplate,
+      templateUrl: templateUrl,
+      templateName: templateName,
       uploadedFileName: uploadedFileName ?? this.uploadedFileName,
+      uploadedFileUrl: uploadedFileUrl ?? this.uploadedFileUrl,
+      submittedAt: submittedAt ?? this.submittedAt,
       remarks: remarks,
     );
   }

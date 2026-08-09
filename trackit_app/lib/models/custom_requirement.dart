@@ -9,7 +9,11 @@ class CustomRequirement {
   final String description;
   final DateTime? deadline;
   final RequirementDocStatus status;
+  final String? templateUrl;
+  final String? templateName;
   final String? uploadedFileName;
+  final String? uploadedFileUrl;
+  final DateTime? submittedAt;
   final String? remarks;
 
   const CustomRequirement({
@@ -18,7 +22,11 @@ class CustomRequirement {
     required this.description,
     this.deadline,
     required this.status,
+    this.templateUrl,
+    this.templateName,
     this.uploadedFileName,
+    this.uploadedFileUrl,
+    this.submittedAt,
     this.remarks,
   });
 
@@ -32,7 +40,13 @@ class CustomRequirement {
         (s) => s.name == json['status'],
         orElse: () => RequirementDocStatus.missing,
       ),
+      templateUrl: json['templateUrl'] as String?,
+      templateName: json['templateName'] as String?,
       uploadedFileName: json['uploadedFileName'] as String?,
+      uploadedFileUrl: json['uploadedFileUrl'] as String?,
+      submittedAt: json['submittedAt'] != null
+          ? DateTime.parse(json['submittedAt'] as String)
+          : null,
       remarks: json['remarks'] as String?,
     );
   }
@@ -47,7 +61,12 @@ class CustomRequirement {
       description: description,
       status: status,
       deadline: deadline,
+      hasTemplate: templateUrl != null,
+      templateUrl: templateUrl,
+      templateName: templateName,
       uploadedFileName: uploadedFileName,
+      uploadedFileUrl: uploadedFileUrl,
+      submittedAt: submittedAt,
       remarks: remarks,
     );
   }

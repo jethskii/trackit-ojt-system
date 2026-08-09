@@ -4,6 +4,7 @@ const path = require('path');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
+const { requirementFileFilter } = require('../utils/requirementFileTypes');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -15,7 +16,11 @@ const storage = multer.diskStorage({
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: requirementFileFilter,
+});
 
 // Additional Requirements -- instructor-created, targeted at the
 // student's class. Same submit/status flow as the fixed Official
@@ -47,8 +52,12 @@ router.get('/', async (req, res) => {
         name: requirement.title,
         description: requirement.description,
         deadline: requirement.deadline,
+        templateUrl: requirement.template_url,
+        templateName: requirement.template_name,
         status: submission ? submission.status : 'missing',
         uploadedFileName: submission ? submission.uploaded_file_name : null,
+        uploadedFileUrl: submission ? submission.uploaded_file_url : null,
+        submittedAt: submission ? submission.submitted_at : null,
         remarks: submission ? submission.remarks : null,
       };
     });

@@ -39,6 +39,7 @@ const PORT = process.env.PORT || 3000;
 // multer's disk storage needs these to exist up front.
 for (const dir of [
   'uploads/requirements',
+  'uploads/requirements/templates',
   'uploads/avatars',
   'uploads/announcements',
   'uploads/admin-announcements',

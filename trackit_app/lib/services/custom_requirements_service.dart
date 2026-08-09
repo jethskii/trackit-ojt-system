@@ -10,7 +10,9 @@ abstract class CustomRequirementsService {
 
   Future<List<CustomRequirement>> submitRequirement({
     required String requirementId,
+    required List<int> fileBytes,
     required String fileName,
+    required String contentType,
   });
 }
 
@@ -31,13 +33,16 @@ class HttpCustomRequirementsService implements CustomRequirementsService {
   @override
   Future<List<CustomRequirement>> submitRequirement({
     required String requirementId,
+    required List<int> fileBytes,
     required String fileName,
+    required String contentType,
   }) async {
-    // No real file_picker plugin yet, same as OjtRequirementsService --
-    // the server accepts a JSON { fileName } submission.
-    await client.post(
+    await client.postMultipart(
       '/api/custom-requirements/$requirementId/submit',
-      body: {'fileName': fileName},
+      fieldName: 'file',
+      fileBytes: fileBytes,
+      fileName: fileName,
+      contentType: contentType,
     );
     return getRequirements();
   }
