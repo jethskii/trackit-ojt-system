@@ -15,23 +15,30 @@ const storage = multer.diskStorage({
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });
+const ALLOWED_MIMETYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    cb(null, allowed.includes(file.mimetype));
+    cb(null, ALLOWED_MIMETYPES.includes(file.mimetype));
   },
 });
 
 const VALID_AUDIENCES = ['all', 'instructors', 'students'];
 
-function deleteImageFile(imageUrl) {
-  if (!imageUrl) return;
-  const filePath = path.join(__dirname, '..', imageUrl.replace(/^\//, ''));
+function deleteAttachmentFile(attachmentUrl) {
+  if (!attachmentUrl) return;
+  const filePath = path.join(__dirname, '..', attachmentUrl.replace(/^\//, ''));
   fs.unlink(filePath, (err) => {
     if (err && err.code !== 'ENOENT') {
-      console.error('Failed to delete admin announcement image file:', err);
+      console.error('Failed to delete admin announcement attachment file:', err);
     }
   });
 }
@@ -60,7 +67,8 @@ router.get('/', async (req, res) => {
         title: row.title,
         content: row.content,
         targetAudience: row.target_audience,
-        imageUrl: row.image_url,
+        attachmentUrl: row.attachment_url,
+        attachmentName: row.attachment_name,
         adminName: row.admin_name,
         createdAt: row.created_at,
       })),
@@ -77,7 +85,7 @@ router.get('/', async (req, res) => {
 // Home Dashboard's "Recent Notifications" reads instructor_notifications
 // directly). The rich version students see on their Dashboard is read
 // fresh from GET /api/announcements, which unions this table in.
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('attachment'), async (req, res) => {
   try {
     const { title, content } = req.body;
     const targetAudience = (req.body.targetAudience || 'all').toString();
@@ -90,12 +98,16 @@ router.post('/', upload.single('image'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid target audience.' });
     }
 
-    const imageUrl = req.file ? `/uploads/admin-announcements/${req.file.filename}` : null;
+    const attachmentUrl = req.file
+      ? `/uploads/admin-announcements/${req.file.filename}`
+      : null;
+    const attachmentName = req.file ? req.file.originalname : null;
 
     const inserted = await pool.query(
-      `INSERT INTO admin_announcements (admin_id, title, content, target_audience, image_url)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [req.adminId, title.trim(), content.trim(), targetAudience, imageUrl],
+      `INSERT INTO admin_announcements
+         (admin_id, title, content, target_audience, attachment_url, attachment_name)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.adminId, title.trim(), content.trim(), targetAudience, attachmentUrl, attachmentName],
     );
     const row = inserted.rows[0];
 
@@ -125,7 +137,8 @@ router.post('/', upload.single('image'), async (req, res) => {
         title: row.title,
         content: row.content,
         targetAudience: row.target_audience,
-        imageUrl: row.image_url,
+        attachmentUrl: row.attachment_url,
+        attachmentName: row.attachment_name,
         adminName: adminResult.rows[0]?.name ?? '',
         createdAt: row.created_at,
       },
@@ -140,7 +153,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const announcementId = Number(req.params.id);
     const existing = await pool.query(
-      'SELECT image_url FROM admin_announcements WHERE id = $1 AND admin_id = $2',
+      'SELECT attachment_url FROM admin_announcements WHERE id = $1 AND admin_id = $2',
       [announcementId, req.adminId],
     );
     if (existing.rows.length === 0) {
@@ -148,7 +161,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     await pool.query('DELETE FROM admin_announcements WHERE id = $1', [announcementId]);
-    deleteImageFile(existing.rows[0].image_url);
+    deleteAttachmentFile(existing.rows[0].attachment_url);
 
     res.json({ success: true });
   } catch (error) {

@@ -42,7 +42,8 @@ class AdminAnnouncement {
   final String title;
   final String content;
   final AdminAnnouncementAudience targetAudience;
-  final String? imageUrl;
+  final String? attachmentUrl;
+  final String? attachmentName;
   final String adminName;
   final DateTime createdAt;
 
@@ -51,7 +52,8 @@ class AdminAnnouncement {
     required this.title,
     required this.content,
     required this.targetAudience,
-    this.imageUrl,
+    this.attachmentUrl,
+    this.attachmentName,
     required this.adminName,
     required this.createdAt,
   });
@@ -62,7 +64,8 @@ class AdminAnnouncement {
       title: json['title'] as String,
       content: json['content'] as String,
       targetAudience: adminAudienceFromDb(json['targetAudience'] as String),
-      imageUrl: json['imageUrl'] as String?,
+      attachmentUrl: json['attachmentUrl'] as String?,
+      attachmentName: json['attachmentName'] as String?,
       adminName: json['adminName'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );

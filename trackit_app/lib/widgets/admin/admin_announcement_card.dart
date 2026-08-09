@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../models/admin_announcement.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/attachment_kind.dart';
+import '../../utils/attachment_launcher.dart';
 
 class AdminAnnouncementCard extends StatelessWidget {
   final AdminAnnouncement announcement;
@@ -14,8 +16,21 @@ class AdminAnnouncementCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  Future<void> _openAttachment(BuildContext context) async {
+    final url = announcement.attachmentUrl;
+    if (url == null) return;
+    final opened = await openAttachment(ApiClient.resolveUrl(url));
+    if (!context.mounted || opened) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Could not open that attachment.')));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final attachmentUrl = announcement.attachmentUrl;
+    final kind = attachmentKindOf(announcement.attachmentName ?? attachmentUrl);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -27,21 +42,40 @@ class AdminAnnouncementCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (announcement.imageUrl != null)
-            ClipRRect(
+          if (attachmentUrl != null && kind == AttachmentKind.image)
+            InkWell(
+              onTap: () => _openAttachment(context),
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                ApiClient.resolveUrl(announcement.imageUrl!),
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  ApiClient.resolveUrl(attachmentUrl),
                   width: 48,
                   height: 48,
-                  color: AppColors.background,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 48,
+                    height: 48,
+                    color: AppColors.background,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                  ),
                 ),
+              ),
+            )
+          else if (attachmentUrl != null)
+            InkWell(
+              onTap: () => _openAttachment(context),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.statBlueBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(attachmentIconOf(kind), color: AppColors.statBlueIcon, size: 22),
               ),
             )
           else
@@ -93,6 +127,19 @@ class AdminAnnouncementCard extends StatelessWidget {
                       DateFormat('MMM d, yyyy - h:mm a').format(announcement.createdAt),
                       style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
+                    if (announcement.attachmentName != null) ...[
+                      const SizedBox(width: 10),
+                      const Icon(Icons.attach_file, size: 12, color: AppColors.textSecondary),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          announcement.attachmentName!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

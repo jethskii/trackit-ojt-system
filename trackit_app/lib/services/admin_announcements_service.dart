@@ -8,9 +8,9 @@ abstract class AdminAnnouncementsService {
     required String title,
     required String content,
     required AdminAnnouncementAudience targetAudience,
-    List<int>? imageBytes,
-    String? imageFileName,
-    String? imageContentType,
+    List<int>? attachmentBytes,
+    String? attachmentFileName,
+    String? attachmentContentType,
   });
 
   Future<void> deleteAnnouncement(int id);
@@ -39,16 +39,16 @@ class HttpAdminAnnouncementsService implements AdminAnnouncementsService {
     required String title,
     required String content,
     required AdminAnnouncementAudience targetAudience,
-    List<int>? imageBytes,
-    String? imageFileName,
-    String? imageContentType,
+    List<int>? attachmentBytes,
+    String? attachmentFileName,
+    String? attachmentContentType,
   }) async {
     final response = await client.postMultipart(
       '/api/admin/announcements',
-      fieldName: 'image',
-      fileBytes: imageBytes,
-      fileName: imageFileName,
-      contentType: imageContentType ?? 'image/jpeg',
+      fieldName: 'attachment',
+      fileBytes: attachmentBytes,
+      fileName: attachmentFileName,
+      contentType: attachmentContentType ?? 'application/octet-stream',
       fields: {
         'title': title,
         'content': content,
