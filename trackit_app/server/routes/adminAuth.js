@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
 const { generateAdminToken, requireAdminAuth } = require('../middleware/adminAuth');
+const { createAdminSession } = require('../utils/adminSessions');
 
 const router = express.Router();
 
@@ -28,11 +29,19 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    const token = generateAdminToken(admin.id);
+    const sessionId = await createAdminSession(admin.id, req.get('User-Agent'), req.ip);
+    const token = generateAdminToken(admin.id, sessionId);
     res.json({
       success: true,
       token,
-      admin: { id: Number(admin.id), name: admin.name, email: admin.email },
+      admin: {
+        id: Number(admin.id),
+        name: admin.name,
+        email: admin.email,
+        avatarUrl: admin.avatar_url,
+        lastPasswordChange: admin.password_changed_at,
+        status: admin.status,
+      },
     });
   } catch (error) {
     console.error('Admin login error:', error);
@@ -40,26 +49,53 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Used by the Flutter sidebar to show the real logged-in admin's name --
-// the token only carries adminId, not the name, so a fresh app launch
-// (token restored from storage, no login response in memory) needs this
-// to render anything beyond "Admin".
+// Used by the Flutter sidebar/profile screen to show the real logged-in
+// admin's identity -- the token only carries adminId, not the rest, so a
+// fresh app launch (token restored from storage, no login response in
+// memory) needs this to render anything beyond a placeholder.
 router.get('/me', requireAdminAuth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email FROM admins WHERE id = $1', [
-      req.adminId,
-    ]);
+    const result = await pool.query(
+      `SELECT id, name, email, avatar_url, password_changed_at, status
+       FROM admins WHERE id = $1`,
+      [req.adminId],
+    );
     const admin = result.rows[0];
     if (!admin) {
       return res.status(404).json({ success: false, message: 'Admin not found.' });
     }
     res.json({
       success: true,
-      admin: { id: Number(admin.id), name: admin.name, email: admin.email },
+      admin: {
+        id: Number(admin.id),
+        name: admin.name,
+        email: admin.email,
+        avatarUrl: admin.avatar_url,
+        lastPasswordChange: admin.password_changed_at,
+        status: admin.status,
+      },
     });
   } catch (error) {
     console.error('Get admin me error:', error);
     res.status(500).json({ success: false, message: 'Failed to load admin.' });
+  }
+});
+
+// Closes the session this token belongs to, mirroring the student
+// auth.js pattern -- never touches other sessions/devices.
+router.post('/logout', requireAdminAuth, async (req, res) => {
+  try {
+    if (req.sessionId) {
+      await pool.query(
+        `UPDATE admin_login_history SET logout_at = now()
+         WHERE id = $1 AND admin_id = $2 AND logout_at IS NULL`,
+        [req.sessionId, req.adminId],
+      );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin logout error:', error);
+    res.status(500).json({ success: false, message: 'Failed to log out.' });
   }
 });
 

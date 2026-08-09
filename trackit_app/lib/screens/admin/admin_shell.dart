@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/admin_profile.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import 'admin_announcements_screen.dart';
@@ -6,6 +7,7 @@ import 'admin_archive_screen.dart';
 import 'admin_class_management_screen.dart';
 import 'admin_hte_directory_screen.dart';
 import 'admin_placeholder_screen.dart';
+import 'admin_profile_screen.dart';
 
 class _AdminSection {
   final String label;
@@ -35,15 +37,13 @@ const _wideBreakpoint = 900.0;
 /// so the sidebar doesn't just overflow the screen.
 class AdminShell extends StatefulWidget {
   final ApiClient client;
-  final String adminName;
-  final String adminEmail;
+  final AdminProfile initialProfile;
   final VoidCallback onLoggedOut;
 
   const AdminShell({
     super.key,
     required this.client,
-    required this.adminName,
-    required this.adminEmail,
+    required this.initialProfile,
     required this.onLoggedOut,
   });
 
@@ -53,6 +53,14 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   int _index = 1; // Class Management is the only built-out section so far.
+  // Mutable so Edit Profile's changes (name, email, avatar) show up
+  // immediately across the shell -- the sidebar card -- instead of only
+  // after the next full login.
+  late AdminProfile _admin = widget.initialProfile;
+
+  void _updateAdmin(AdminProfile profile) {
+    setState(() => _admin = profile);
+  }
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -100,10 +108,15 @@ class _AdminShellState extends State<AdminShell> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.white24,
-                child: Icon(Icons.person, color: Colors.white, size: 20),
+                backgroundImage: _admin.avatarUrl != null
+                    ? NetworkImage(ApiClient.resolveUrl(_admin.avatarUrl!))
+                    : null,
+                child: _admin.avatarUrl == null
+                    ? const Icon(Icons.person, color: Colors.white, size: 20)
+                    : null,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -111,7 +124,7 @@ class _AdminShellState extends State<AdminShell> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.adminName,
+                      _admin.name,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13.5,
@@ -165,9 +178,10 @@ class _AdminShellState extends State<AdminShell> {
       AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),
       AdminArchiveScreen(client: widget.client),
-      const AdminPlaceholderScreen(
-        title: 'Profile',
-        icon: Icons.account_circle_outlined,
+      AdminProfileScreen(
+        client: widget.client,
+        admin: _admin,
+        onProfileUpdated: _updateAdmin,
       ),
     ];
 

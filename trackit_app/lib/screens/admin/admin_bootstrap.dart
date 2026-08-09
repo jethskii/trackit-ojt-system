@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/admin_profile.dart';
 import '../../services/admin_auth_service.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
@@ -25,7 +26,7 @@ class AdminBootstrap extends StatefulWidget {
 }
 
 class _AdminBootstrapState extends State<AdminBootstrap> {
-  late Future<Map<String, dynamic>> _future;
+  late Future<AdminProfile> _future;
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class _AdminBootstrapState extends State<AdminBootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
+    return FutureBuilder<AdminProfile>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -105,8 +106,7 @@ class _AdminBootstrapState extends State<AdminBootstrap> {
 
         return AdminShell(
           client: widget.client,
-          adminName: snapshot.data!['name'] as String,
-          adminEmail: snapshot.data!['email'] as String,
+          initialProfile: snapshot.data!,
           onLoggedOut: widget.onLoggedOut,
         );
       },

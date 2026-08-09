@@ -69,7 +69,8 @@ trackit-ojt-system/
             ├── migration_admin.sql
             ├── migration_admin_announcements.sql
             ├── migration_admin_announcements_attachments.sql
-            └── migration_hte_directory.sql                   # run last
+            ├── migration_hte_directory.sql
+            └── migration_admin_profile.sql                   # run last
 ```
 
 Every feature follows the same pattern: a Dart **model**, an abstract
@@ -88,7 +89,10 @@ pushing a sub-screen keeps the bottom nav bar visible.
 npm start
 ```
 Requires `trackit_app/.env` (see `trackit_app/.env.example`) with
-`DATABASE_URL`, `JWT_SECRET`, `PORT`, `NODE_ENV`.
+`DATABASE_URL`, `JWT_SECRET`, `PORT`, `NODE_ENV`. The Admin Profile's
+"Change Password" email OTP flow additionally needs `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` -- see the comment in
+`.env.example` for a Gmail App Password walkthrough.
 
 ### Database setup (Neon SQL Editor, in order)
 1. `schema.sql`
@@ -108,6 +112,7 @@ Requires `trackit_app/.env` (see `trackit_app/.env.example`) with
 15. `migration_admin_announcements.sql`
 16. `migration_admin_announcements_attachments.sql`
 17. `migration_hte_directory.sql`
+18. `migration_admin_profile.sql`
 
 All migrations are non-destructive (`ADD COLUMN IF NOT EXISTS`, etc.) and
 safe to re-run.
