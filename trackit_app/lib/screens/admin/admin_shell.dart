@@ -4,8 +4,8 @@ import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_archive_screen.dart';
+import 'admin_class_management_screen.dart';
 import 'admin_hte_directory_screen.dart';
-import 'admin_overview_screen.dart';
 import 'admin_placeholder_screen.dart';
 import 'admin_profile_screen.dart';
 
@@ -52,9 +52,7 @@ class AdminShell extends StatefulWidget {
 }
 
 class _AdminShellState extends State<AdminShell> {
-  // Overview -- the Sections/Faculty dashboard that used to live under
-  // Class Management -- is now the default landing section.
-  int _index = 0;
+  int _index = 1; // Class Management is the only built-out section so far.
   // Mutable so Edit Profile's changes (name, email, avatar) show up
   // immediately across the shell -- the sidebar card -- instead of only
   // after the next full login.
@@ -175,12 +173,8 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      AdminOverviewScreen(client: widget.client),
-      // The former Class Management content (Sections/Faculty browsing) now
-      // lives under Overview -- this slot is reserved for actual
-      // administrative CRUD tooling (assigning instructors, managing class
-      // assignments, etc.) once that's built out.
-      const AdminPlaceholderScreen(title: 'Class Management', icon: Icons.class_outlined),
+      const AdminPlaceholderScreen(title: 'Overview', icon: Icons.dashboard_outlined),
+      AdminClassManagementScreen(client: widget.client),
       AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),
       AdminArchiveScreen(client: widget.client),
