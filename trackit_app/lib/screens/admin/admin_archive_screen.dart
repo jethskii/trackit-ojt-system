@@ -146,7 +146,7 @@ class _AdminArchiveScreenState extends State<AdminArchiveScreen> {
           (c) =>
               c.program.toLowerCase().contains(q) ||
               c.section.toLowerCase().contains(q) ||
-              c.instructorName.toLowerCase().contains(q),
+              (c.instructorName?.toLowerCase().contains(q) ?? false),
         )
         .toList();
   }
@@ -445,7 +445,7 @@ class _AdminArchiveScreenState extends State<AdminArchiveScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    '${c.studentCount} Students · ${c.instructorName}',
+                                    '${c.studentCount} Students · ${c.instructorName ?? 'Unassigned'}',
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       color: selected ? Colors.white70 : AppColors.textSecondary,

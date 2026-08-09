@@ -107,8 +107,8 @@ class ArchiveClassDetail {
       section: json['section'] as String,
       academicYear: json['academicYear'] as String,
       yearLevel: json['yearLevel'] as String?,
-      instructorName: json['instructorName'] as String,
-      instructorEmail: json['instructorEmail'] as String,
+      instructorName: json['instructorName'] as String? ?? 'Unassigned',
+      instructorEmail: json['instructorEmail'] as String? ?? '',
       totalStudents: json['totalStudents'] as int,
       students: (json['students'] as List<dynamic>)
           .map((s) => ArchiveClassStudent.fromJson(s as Map<String, dynamic>))

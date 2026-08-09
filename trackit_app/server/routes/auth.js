@@ -27,10 +27,15 @@ router.post('/register', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const existing = await pool.query('SELECT id FROM students WHERE email = $1', [
+    const existing = await pool.query('SELECT * FROM students WHERE email = $1', [
       normalizedEmail,
     ]);
-    if (existing.rows.length > 0) {
+    const existingStudent = existing.rows[0];
+    // A real duplicate (already has a password) is rejected exactly as
+    // before. A row with no password is a pre-imported placeholder
+    // (Admin's Import Students) that this registration should claim
+    // instead, handled below once the activation code is validated.
+    if (existingStudent && existingStudent.password_hash) {
       return res
         .status(409)
         .json({ success: false, message: 'An account with this email already exists.' });
@@ -46,21 +51,62 @@ router.post('/register', async (req, res) => {
     const studentClass = classResult.rows[0];
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, email, course, section, avatar_url, required_hours`,
-      [
-        name,
-        normalizedEmail,
-        passwordHash,
-        studentClass.program,
-        studentClass.section,
-        studentNumber || null,
-        yearLevel || null,
-      ],
-    );
-    const student = result.rows[0];
+    let student;
+
+    if (existingStudent) {
+      // Pending row from Import Students -- only claimable with a code
+      // for the same section it was imported into, so a matching email
+      // can't be hijacked into a different section via someone else's
+      // code.
+      const profileResult = await pool.query(
+        'SELECT class_id FROM student_profiles WHERE student_id = $1',
+        [existingStudent.id],
+      );
+      const currentClassId = profileResult.rows[0]?.class_id;
+      if (currentClassId && Number(currentClassId) !== Number(studentClass.id)) {
+        return res.status(409).json({
+          success: false,
+          message:
+            'This email was imported into a different section. Contact your OJT coordinator.',
+        });
+      }
+
+      const updated = await pool.query(
+        `UPDATE students
+         SET name = $1, password_hash = $2, course = $3, section = $4,
+             student_number = COALESCE($5, student_number),
+             year_level = COALESCE($6, year_level),
+             activated_at = now(), updated_at = now()
+         WHERE id = $7
+         RETURNING id, name, email, course, section, avatar_url, required_hours`,
+        [
+          name,
+          passwordHash,
+          studentClass.program,
+          studentClass.section,
+          studentNumber || null,
+          yearLevel || null,
+          existingStudent.id,
+        ],
+      );
+      student = updated.rows[0];
+    } else {
+      const inserted = await pool.query(
+        `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level, activated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         RETURNING id, name, email, course, section, avatar_url, required_hours`,
+        [
+          name,
+          normalizedEmail,
+          passwordHash,
+          studentClass.program,
+          studentClass.section,
+          studentNumber || null,
+          yearLevel || null,
+        ],
+      );
+      student = inserted.rows[0];
+    }
 
     await pool.query(
       `INSERT INTO student_profiles (student_id, adviser_id, class_id)
@@ -112,6 +158,15 @@ router.post('/login', async (req, res) => {
     const student = result.rows[0];
     if (!student) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+    // Pending row from Import Students -- no password set yet, so there's
+    // nothing bcrypt.compare could meaningfully check against.
+    if (!student.password_hash) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'This account has not been activated yet. Register with your section\'s activation code to set a password.',
+      });
     }
 
     const passwordMatches = await bcrypt.compare(password, student.password_hash);

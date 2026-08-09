@@ -3,6 +3,8 @@
 // way -- an archived year should look like a real historical snapshot of
 // the same live logic, not a separately-drifting copy of it.
 
+const pool = require('../db');
+
 const INACTIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // A small static reference lookup, not per-record data -- there's no
@@ -33,4 +35,16 @@ function computeStudentStatus(companyName, lastLoginAt) {
   return 'inactive';
 }
 
-module.exports = { programFullName, computeStudentStatus };
+// There's no explicit "close out the year" action anywhere in this app,
+// so "current" is inferred: the most recent academic_year string found
+// among real classes. Everything else is, by definition, a past year.
+// Academic years are always stored as "YYYY-YYYY", same length, so plain
+// string DESC sorting is a correct year sort too.
+async function getCurrentAcademicYear() {
+  const result = await pool.query(
+    'SELECT academic_year FROM instructor_classes ORDER BY academic_year DESC LIMIT 1',
+  );
+  return result.rows[0]?.academic_year ?? null;
+}
+
+module.exports = { programFullName, computeStudentStatus, getCurrentAcademicYear };

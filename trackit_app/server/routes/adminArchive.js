@@ -3,23 +3,15 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const pool = require('../db');
 const { requireAdminAuth } = require('../middleware/adminAuth');
-const { programFullName, computeStudentStatus } = require('../utils/classHelpers');
+const {
+  programFullName,
+  computeStudentStatus,
+  getCurrentAcademicYear,
+} = require('../utils/classHelpers');
 const { toCsv } = require('../utils/csv');
 
 const router = express.Router();
 router.use(requireAdminAuth);
-
-// There's no explicit "close out the year" action anywhere in this app,
-// so "current" is inferred: the most recent academic_year string found
-// among real classes. Everything else is, by definition, a past year.
-// Academic years are always stored as "YYYY-YYYY", same length, so plain
-// string DESC sorting is a correct year sort too.
-async function getCurrentAcademicYear() {
-  const result = await pool.query(
-    'SELECT academic_year FROM instructor_classes ORDER BY academic_year DESC LIMIT 1',
-  );
-  return result.rows[0]?.academic_year ?? null;
-}
 
 // Same shape as adminClasses.js's loadClassStudents, plus real completed/
 // required hours (from attendance_records / students.required_hours) --
@@ -106,7 +98,7 @@ router.get('/classes', async (req, res) => {
     const result = await pool.query(
       `SELECT c.*, a.name AS instructor_name, COUNT(sp.student_id) AS student_count
        FROM instructor_classes c
-       JOIN advisers a ON a.id = c.instructor_id
+       LEFT JOIN advisers a ON a.id = c.instructor_id
        LEFT JOIN student_profiles sp ON sp.class_id = c.id
        ${where}
        GROUP BY c.id, a.name
@@ -136,7 +128,7 @@ router.get('/classes/:id', async (req, res) => {
     const result = await pool.query(
       `SELECT c.*, a.name AS instructor_name, a.email AS instructor_email
        FROM instructor_classes c
-       JOIN advisers a ON a.id = c.instructor_id
+       LEFT JOIN advisers a ON a.id = c.instructor_id
        WHERE c.id = $1`,
       [classId],
     );
@@ -202,7 +194,7 @@ async function buildExportRows(year) {
   const classesResult = await pool.query(
     `SELECT c.*, a.name AS instructor_name
      FROM instructor_classes c
-     JOIN advisers a ON a.id = c.instructor_id
+     LEFT JOIN advisers a ON a.id = c.instructor_id
      WHERE c.academic_year = $1
      ORDER BY c.program ASC, c.section ASC`,
     [year],
@@ -216,7 +208,7 @@ async function buildExportRows(year) {
         program: classRow.program,
         section: classRow.section,
         academicYear: classRow.academic_year,
-        instructorName: classRow.instructor_name,
+        instructorName: classRow.instructor_name || 'Unassigned',
         studentName: student.name,
         studentNumber: student.studentNumber || '',
         assignedCompany: student.assignedCompany || 'N/A',
