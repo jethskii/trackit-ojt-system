@@ -23,18 +23,21 @@ String _suggestedAcademicYear() {
   return '$startYear-${startYear + 1}';
 }
 
-class AdminClassManagementScreen extends StatefulWidget {
+/// The Admin dashboard's central overview: high-level Sections/Students and
+/// Faculty/Instructors information, switchable via the top tabs. This used
+/// to live under the "Class Management" sidebar item -- it was moved here
+/// because it's dashboard/overview content (browse + drill into a section
+/// or instructor), not the CRUD-focused "Class Management" feature itself.
+class AdminOverviewScreen extends StatefulWidget {
   final ApiClient client;
 
-  const AdminClassManagementScreen({super.key, required this.client});
+  const AdminOverviewScreen({super.key, required this.client});
 
   @override
-  State<AdminClassManagementScreen> createState() =>
-      _AdminClassManagementScreenState();
+  State<AdminOverviewScreen> createState() => _AdminOverviewScreenState();
 }
 
-class _AdminClassManagementScreenState
-    extends State<AdminClassManagementScreen> {
+class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   late final AdminClassesService _classesService = HttpAdminClassesService(
     widget.client,
   );
@@ -368,7 +371,7 @@ class _AdminClassManagementScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Class Management',
+          'Overview',
           style: TextStyle(
             fontSize: isWide ? 24 : 20,
             fontWeight: FontWeight.bold,
@@ -377,7 +380,7 @@ class _AdminClassManagementScreenState
         ),
         const SizedBox(height: 2),
         const Text(
-          'Manage sections, instructors, and students.',
+          'High-level view of sections, instructors, and students.',
           style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
