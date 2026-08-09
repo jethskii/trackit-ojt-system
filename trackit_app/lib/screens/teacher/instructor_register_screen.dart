@@ -3,6 +3,11 @@ import '../../services/api_client.dart';
 import '../../services/instructor_auth_service.dart';
 import '../../utils/app_colors.dart';
 
+/// Activates the account an Admin already created (Faculty/Instructors
+/// -> Add Instructor): the instructor only needs the Instructor
+/// Activation Code they were given, plus a password of their own
+/// choosing. There's no free self-registration -- name, email, and
+/// position are all already set by the Admin.
 class InstructorRegisterScreen extends StatefulWidget {
   final InstructorAuthService instructorAuthService;
   final VoidCallback onRegistered;
@@ -20,20 +25,16 @@ class InstructorRegisterScreen extends StatefulWidget {
 
 class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _positionController = TextEditingController(text: 'OJT Adviser');
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
+    _codeController.dispose();
     _passwordController.dispose();
-    _positionController.dispose();
     super.dispose();
   }
 
@@ -45,10 +46,8 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
     });
     try {
       await widget.instructorAuthService.register(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
+        activationCode: _codeController.text.trim(),
         password: _passwordController.text,
-        position: _positionController.text.trim(),
       );
       if (!mounted) return;
       widget.onRegistered();
@@ -85,7 +84,7 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Instructor Account',
+                      'Activate Instructor Account',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -94,7 +93,8 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Register to review your assigned students\' OJT progress.',
+                      'Enter the Instructor Activation Code your OJT '
+                      'coordinator gave you, then set a password.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
@@ -114,21 +114,15 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
                       const SizedBox(height: 16),
                     ],
                     TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Full Name'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Name is required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Email is required';
-                        if (!v.contains('@')) return 'Enter a valid email';
-                        return null;
-                      },
+                      controller: _codeController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'Instructor Activation Code',
+                        hintText: 'e.g. FAC-2026-001',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'An activation code is required'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -154,13 +148,6 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _positionController,
-                      decoration: const InputDecoration(labelText: 'Position'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _submitting ? null : _submit,
@@ -181,7 +168,7 @@ class _InstructorRegisterScreenState extends State<InstructorRegisterScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Register'),
+                          : const Text('Activate Account'),
                     ),
                   ],
                 ),

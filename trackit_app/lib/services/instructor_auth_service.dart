@@ -22,20 +22,17 @@ class InstructorAuthService {
     return token;
   }
 
+  /// Claims the account an Admin already created for this instructor
+  /// (see Faculty/Instructors -> Add Instructor) -- there's no free
+  /// self-registration anymore, only activating a pre-created row with
+  /// its Instructor Activation Code.
   Future<InstructorAuthResult> register({
-    required String name,
-    required String email,
+    required String activationCode,
     required String password,
-    String? position,
   }) async {
     final response = await client.post(
       '/api/instructor-auth/register',
-      body: {
-        'name': name,
-        'email': email,
-        'password': password,
-        if (position != null) 'position': position,
-      },
+      body: {'activationCode': activationCode, 'password': password},
     );
     return _persistAuthResponse(response);
   }

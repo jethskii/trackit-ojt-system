@@ -7,8 +7,8 @@ const { toCsv } = require('../utils/csv');
 const { parseCsvRecords } = require('../utils/csvParse');
 const {
   programFullName,
-  computeStudentStatus,
   getCurrentAcademicYear,
+  loadClassStudents,
 } = require('../utils/classHelpers');
 
 const router = express.Router();
@@ -25,38 +25,6 @@ const uploadCsv = multer({
     cb(null, isCsvExt || allowed.includes(file.mimetype));
   },
 });
-
-async function loadClassStudents(classId) {
-  const result = await pool.query(
-    `SELECT s.id, s.name, s.email, s.student_number, s.avatar_url, s.activated_at,
-            sp.company_name, sp.company_supervisor_name, sp.emergency_contact,
-            lh.last_login
-     FROM students s
-     JOIN student_profiles sp ON sp.student_id = s.id
-     LEFT JOIN LATERAL (
-       SELECT MAX(login_at) AS last_login FROM login_history WHERE student_id = s.id
-     ) lh ON true
-     WHERE sp.class_id = $1
-     ORDER BY s.name ASC`,
-    [classId],
-  );
-  return result.rows.map((row) => ({
-    id: Number(row.id),
-    name: row.name,
-    email: row.email,
-    studentNumber: row.student_number,
-    avatarUrl: row.avatar_url,
-    assignedCompany: row.company_name,
-    status: computeStudentStatus(row.company_name, row.last_login),
-    contactPerson: row.emergency_contact,
-    ojtSupervisor: row.company_supervisor_name,
-    // Account activation -- separate from the OJT-progress `status`
-    // above. Imported students start with no password (Pending) until
-    // they register themselves with the section's activation code.
-    accountStatus: row.activated_at ? 'activated' : 'pending',
-    dateActivated: row.activated_at,
-  }));
-}
 
 // All classes school-wide -- unlike the instructor's own GET
 // /api/teacher/classes, this isn't scoped to one instructor_id, since an

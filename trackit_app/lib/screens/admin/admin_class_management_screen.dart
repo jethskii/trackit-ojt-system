@@ -6,7 +6,7 @@ import '../../utils/app_colors.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
 import 'admin_class_detail_panel.dart';
-import 'admin_placeholder_screen.dart';
+import 'admin_faculty_screen.dart';
 
 // Below this width there's no room for the class list and its detail pane
 // side by side -- falls back to a single pane (list, or detail-with-a-
@@ -332,12 +332,7 @@ class _AdminClassManagementScreenState
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: _topTab == 1
-                  ? const AdminPlaceholderScreen(
-                      title: 'Faculty (Instructors)',
-                      icon: Icons.people_outline,
-                    )
-                  : _yearsLoading
+              child: _yearsLoading
                   ? const SkeletonList()
                   : _yearsError != null
                   ? EmptyStateView(
@@ -347,7 +342,20 @@ class _AdminClassManagementScreenState
                       actionLabel: 'Retry',
                       onAction: _loadAcademicYears,
                     )
-                  : _buildContent(isWide),
+                  // IndexedStack (not a rebuild-on-switch) so flipping
+                  // between Sections and Faculty feels like two sides of
+                  // the same screen -- neither side loses its selection
+                  // or scroll position when you switch away and back.
+                  : IndexedStack(
+                      index: _topTab,
+                      children: [
+                        _buildContent(isWide),
+                        AdminFacultyScreen(
+                          client: widget.client,
+                          academicYear: _selectedAcademicYear,
+                        ),
+                      ],
+                    ),
             ),
           ],
         );

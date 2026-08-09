@@ -26,4 +26,21 @@ async function generateUniqueCode() {
   throw new Error('Could not generate a unique activation code.');
 }
 
-module.exports = { generateUniqueCode };
+// FAC-YYYY-NNN -- a completely separate code space from student
+// activation codes (checked against advisers.activation_code, never
+// instructor_classes.activation_code), so the two are never
+// interchangeable even by accident.
+async function generateInstructorActivationCode() {
+  const year = new Date().getFullYear();
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const sequence = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
+    const code = `FAC-${year}-${sequence}`;
+    const existing = await pool.query('SELECT id FROM advisers WHERE activation_code = $1', [
+      code,
+    ]);
+    if (existing.rows.length === 0) return code;
+  }
+  throw new Error('Could not generate a unique instructor activation code.');
+}
+
+module.exports = { generateUniqueCode, generateInstructorActivationCode };
