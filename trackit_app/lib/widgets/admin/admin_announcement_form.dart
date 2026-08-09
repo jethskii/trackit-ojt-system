@@ -62,7 +62,7 @@ class _AdminAnnouncementFormState extends State<AdminAnnouncementForm> {
   Future<void> _pickAttachment() async {
     setState(() => _picking = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: _allowedExtensions,
         withData: true,
