@@ -351,9 +351,26 @@ class _AdminInstructorDetailPanelState extends State<AdminInstructorDetailPanel>
       );
     }
 
-    final detail = _detail!;
-    final filteredStudents = _filteredStudents;
+    // Guards against any single instructor's data shape (a legacy row,
+    // an unexpected null) taking down the whole panel silently -- an
+    // exception here surfaces as a real, readable error instead of a
+    // blank pane with nothing to debug from.
+    try {
+      return _buildLoadedBody(_detail!, _filteredStudents);
+    } catch (e) {
+      return Center(
+        child: EmptyStateView(
+          icon: Icons.error_outline,
+          title: 'Could not display this instructor',
+          message: e.toString(),
+          actionLabel: 'Retry',
+          onAction: _load,
+        ),
+      );
+    }
+  }
 
+  Widget _buildLoadedBody(AdminInstructorDetail detail, List<AdminInstructorStudent> filteredStudents) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(18),
       child: Column(
