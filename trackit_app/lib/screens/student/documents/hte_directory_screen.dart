@@ -248,32 +248,7 @@ class _CompanyDetailSheet extends StatelessWidget {
                 icon: Icons.event_seat_outlined,
                 label: '${company.availableSlots} OJT Slots',
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.of(context).pop();
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Applying through the app is coming soon. Please apply directly with the company for now.',
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryMaroon,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('Apply'),
-                ),
-              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
