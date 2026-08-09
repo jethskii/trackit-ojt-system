@@ -4,9 +4,9 @@ import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_archive_screen.dart';
+import 'admin_class_management_screen.dart';
 import 'admin_hte_directory_screen.dart';
 import 'admin_overview_screen.dart';
-import 'admin_placeholder_screen.dart';
 import 'admin_profile_screen.dart';
 
 class _AdminSection {
@@ -176,11 +176,7 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     final pages = [
       AdminOverviewScreen(client: widget.client),
-      // The former Class Management content (Sections/Faculty browsing) now
-      // lives under Overview -- this slot is reserved for actual
-      // administrative CRUD tooling (assigning instructors, managing class
-      // assignments, etc.) once that's built out.
-      const AdminPlaceholderScreen(title: 'Class Management', icon: Icons.class_outlined),
+      AdminClassManagementScreen(client: widget.client),
       AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),
       AdminArchiveScreen(client: widget.client),

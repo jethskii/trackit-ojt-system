@@ -1,10 +1,13 @@
 const express = require('express');
 const multer = require('multer');
+const PDFDocument = require('pdfkit');
+const ExcelJS = require('exceljs');
 const pool = require('../db');
 const { requireAdminAuth } = require('../middleware/adminAuth');
 const { generateUniqueCode } = require('../utils/activationCode');
 const { toCsv } = require('../utils/csv');
 const { parseCsvRecords } = require('../utils/csvParse');
+const { parseXlsxRecords } = require('../utils/xlsxParse');
 const {
   programFullName,
   getCurrentAcademicYear,
@@ -14,15 +17,22 @@ const {
 const router = express.Router();
 router.use(requireAdminAuth);
 
-// Import Students reads the CSV into memory and parses it directly --
-// there's no reason to persist the uploaded file itself on disk.
-const uploadCsv = multer({
+// Import Students reads the file into memory and parses it directly --
+// there's no reason to persist the uploaded file itself on disk. Accepts
+// both CSV and the downloadable .xlsx template (see /import-template).
+const uploadImport = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['text/csv', 'application/vnd.ms-excel', 'application/csv'];
-    const isCsvExt = file.originalname.toLowerCase().endsWith('.csv');
-    cb(null, isCsvExt || allowed.includes(file.mimetype));
+    const allowedMime = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/csv',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    const name = file.originalname.toLowerCase();
+    const isAllowedExt = name.endsWith('.csv') || name.endsWith('.xlsx');
+    cb(null, isAllowedExt || allowedMime.includes(file.mimetype));
   },
 });
 
@@ -168,6 +178,39 @@ router.post('/', async (req, res) => {
   }
 });
 
+// A blank, downloadable starting point for Import Students -- headers
+// match what the importer below actually recognizes. Registered before
+// "/:id" for the same reason "/export" is: Express would otherwise try
+// to match "import-template" as an :id.
+router.get('/import-template', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Students');
+    sheet.columns = [
+      { header: 'Last Name', key: 'lastName', width: 20 },
+      { header: 'First Name', key: 'firstName', width: 20 },
+      { header: 'Middle Initial', key: 'middleInitial', width: 16 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Student Number', key: 'studentNumber', width: 18 },
+      { header: 'Year', key: 'year', width: 14 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="trackit-student-import-template.xlsx"',
+    );
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Get import template error:', error);
+    res.status(500).json({ success: false, message: 'Failed to build the import template.' });
+  }
+});
+
 // Registered before the "/:id" route below -- Express matches routes in
 // registration order, and "/:id" would otherwise swallow "/export" as if
 // "export" were an id (Number('export') => NaN, silently breaking this
@@ -185,12 +228,70 @@ const EXPORT_COLUMNS = [
   { key: 'ojtSupervisor', label: 'OJT Supervisor' },
 ];
 
+// Fixed, non-customizable table -- same columns regardless of format,
+// matching every row Class Management can already show per student.
+function renderClassesPdf(doc, rows) {
+  const columns = [
+    { key: 'program', label: 'Program', width: 40 },
+    { key: 'section', label: 'Section', width: 40 },
+    { key: 'academicYear', label: 'A.Y.', width: 55 },
+    { key: 'instructorName', label: 'Instructor', width: 80 },
+    { key: 'studentName', label: 'Student Name', width: 100 },
+    { key: 'studentNumber', label: 'Student No.', width: 65 },
+    { key: 'assignedCompany', label: 'Company', width: 100 },
+    { key: 'status', label: 'Status', width: 50 },
+    { key: 'contactPerson', label: 'Contact Person', width: 90 },
+    { key: 'ojtSupervisor', label: 'OJT Supervisor', width: 90 },
+  ];
+  const left = doc.page.margins.left;
+  const rowHeight = 18;
+  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+
+  function drawHeaderRow(y) {
+    doc.font('Helvetica-Bold').fontSize(8);
+    let x = left;
+    for (const col of columns) {
+      doc.text(col.label, x, y, { width: col.width, ellipsis: true });
+      x += col.width;
+    }
+    doc.moveTo(left, y + 13).lineTo(left + tableWidth, y + 13).strokeColor('#cccccc').stroke();
+    doc.font('Helvetica').fontSize(7.5).fillColor('#000000');
+  }
+
+  doc.font('Helvetica-Bold').fontSize(16).text('TRACKIT Class Management Export');
+  doc.moveDown(0.5);
+
+  let y = doc.y + 4;
+  drawHeaderRow(y);
+  y += rowHeight;
+
+  for (const row of rows) {
+    if (y > doc.page.height - doc.page.margins.bottom - rowHeight) {
+      doc.addPage();
+      y = doc.page.margins.top;
+      drawHeaderRow(y);
+      y += rowHeight;
+    }
+    let x = left;
+    for (const col of columns) {
+      const value = row[col.key];
+      doc.text(value === null || value === undefined ? '' : value.toString(), x, y, {
+        width: col.width,
+        ellipsis: true,
+      });
+      x += col.width;
+    }
+    y += rowHeight;
+  }
+}
+
 // One export endpoint covers both "export one section" and "export
 // multiple sections together" -- ids is always a list, just length 1
-// for the single-section case.
+// for the single-section case -- in CSV, Excel, or PDF (?format=).
 router.get('/export', async (req, res) => {
   try {
     const idsParam = (req.query.ids || '').toString();
+    const format = (req.query.format || 'csv').toString().toLowerCase();
     const ids = idsParam
       .split(',')
       .map((s) => Number(s.trim()))
@@ -217,7 +318,7 @@ router.get('/export', async (req, res) => {
           academicYear: classRow.academic_year,
           instructorName: classRow.instructor_name || 'Unassigned',
           studentName: student.name,
-          studentNumber: student.studentNumber,
+          studentNumber: student.studentNumber || '',
           assignedCompany: student.assignedCompany || 'N/A',
           status: student.status,
           contactPerson: student.contactPerson || '',
@@ -226,17 +327,43 @@ router.get('/export', async (req, res) => {
       }
     }
 
-    const csv = toCsv(EXPORT_COLUMNS, rows);
     // Strip characters that would break the quoted Content-Disposition
     // filename (program/section are instructor-entered, not fully trusted).
     const sanitize = (s) => s.replace(/["\r\n]/g, '').trim();
-    const filename =
+    const baseFilename =
       classesResult.rows.length === 1
-        ? `${sanitize(classesResult.rows[0].program)}-${sanitize(classesResult.rows[0].section)}.csv`
-        : `trackit-export-${ids.length}-sections.csv`;
+        ? `${sanitize(classesResult.rows[0].program)}-${sanitize(classesResult.rows[0].section)}`
+        : `trackit-class-management-${ids.length}-sections`;
 
+    if (format === 'xlsx') {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Students');
+      sheet.columns = EXPORT_COLUMNS.map((c) => ({ header: c.label, key: c.key, width: 20 }));
+      sheet.addRows(rows);
+      sheet.getRow(1).font = { bold: true };
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.xlsx"`);
+      await workbook.xlsx.write(res);
+      res.end();
+      return;
+    }
+
+    if (format === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.pdf"`);
+      const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape' });
+      doc.pipe(res);
+      renderClassesPdf(doc, rows);
+      doc.end();
+      return;
+    }
+
+    const csv = toCsv(EXPORT_COLUMNS, rows);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.csv"`);
     res.send(csv);
   } catch (error) {
     console.error('Export classes error:', error);
@@ -324,16 +451,18 @@ router.patch('/:id/regenerate-code', async (req, res) => {
   }
 });
 
-// Import Students -- a CSV of (at minimum) Full Name + Email, associated
-// with this section + its academic year. Each row becomes a real,
-// persisted student account with no password yet (Pending); the student
-// activates it themselves later by registering with this section's
-// activation code, which claims the row rather than creating a
-// duplicate (see routes/auth.js).
-router.post('/:id/import-students', uploadCsv.single('file'), async (req, res) => {
+// Import Students -- a CSV or .xlsx (see /import-template) of (at
+// minimum) a name + email, associated with this section + its academic
+// year. Each row becomes a real, persisted student account with no
+// password yet (Pending); the student activates it themselves later by
+// registering with this section's activation code, which claims the row
+// rather than creating a duplicate (see routes/auth.js). Program/Section
+// aren't read from the file -- they're implied by which section you're
+// importing into.
+router.post('/:id/import-students', uploadImport.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No CSV file uploaded.' });
+      return res.status(400).json({ success: false, message: 'No file uploaded.' });
     }
     const classId = Number(req.params.id);
     const classResult = await pool.query(
@@ -345,23 +474,33 @@ router.post('/:id/import-students', uploadCsv.single('file'), async (req, res) =
     }
     const targetClass = classResult.rows[0];
 
+    const isXlsx = req.file.originalname.toLowerCase().endsWith('.xlsx');
     let records;
     try {
-      records = parseCsvRecords(req.file.buffer.toString('utf8'));
+      records = isXlsx
+        ? await parseXlsxRecords(req.file.buffer)
+        : parseCsvRecords(req.file.buffer.toString('utf8'));
     } catch {
-      return res.status(400).json({ success: false, message: 'Could not read that CSV file.' });
+      return res.status(400).json({ success: false, message: 'Could not read that file.' });
     }
     if (records.length === 0) {
-      return res.status(400).json({ success: false, message: 'The CSV file has no rows to import.' });
+      return res.status(400).json({ success: false, message: 'The file has no rows to import.' });
     }
 
     let created = 0;
     const skipped = [];
 
     for (const record of records) {
-      const name = (record['full name'] || record['name'] || '').trim();
+      const lastName = (record['last name'] || '').trim();
+      const firstName = (record['first name'] || '').trim();
+      const middleInitial = (record['middle initial'] || record['m.i.'] || record['mi'] || '').trim();
+      const splitNameParts = [firstName, middleInitial ? `${middleInitial}.` : '', lastName].filter(
+        (part) => part.length > 0,
+      );
+      const name = (record['full name'] || record['name'] || '').trim() || splitNameParts.join(' ');
       const email = (record['email'] || '').trim().toLowerCase();
       const studentNumber = (record['student number'] || record['student id'] || '').trim() || null;
+      const yearLevel = (record['year'] || record['year level'] || '').trim() || null;
 
       if (!name || !email) {
         skipped.push({ email: email || '(blank)', reason: 'Missing name or email.' });
@@ -375,10 +514,10 @@ router.post('/:id/import-students', uploadCsv.single('file'), async (req, res) =
       }
 
       const inserted = await pool.query(
-        `INSERT INTO students (name, email, password_hash, course, section, student_number)
-         VALUES ($1, $2, NULL, $3, $4, $5)
+        `INSERT INTO students (name, email, password_hash, course, section, student_number, year_level)
+         VALUES ($1, $2, NULL, $3, $4, $5, $6)
          RETURNING id`,
-        [name, email, targetClass.program, targetClass.section, studentNumber],
+        [name, email, targetClass.program, targetClass.section, studentNumber, yearLevel],
       );
       const studentId = inserted.rows[0].id;
 

@@ -22,10 +22,15 @@ abstract class AdminClassesService {
     required String fileName,
   });
 
-  /// Real CSV bytes fetched over an authenticated request (not a plain
+  /// A blank starting point for Import Students (.xlsx), with the
+  /// headers the importer actually recognizes.
+  Future<RawFileResponse> downloadImportTemplate();
+
+  /// Real file bytes fetched over an authenticated request (not a plain
   /// browser navigation, which wouldn't carry the auth token) -- the
-  /// caller hands these to a platform download helper.
-  Future<RawFileResponse> exportClasses(List<int> classIds);
+  /// caller hands these to a platform download helper. [format] is one
+  /// of 'csv' (default), 'xlsx', or 'pdf'.
+  Future<RawFileResponse> exportClasses(List<int> classIds, {String format = 'csv'});
 }
 
 class HttpAdminClassesService implements AdminClassesService {
@@ -87,19 +92,27 @@ class HttpAdminClassesService implements AdminClassesService {
     required List<int> fileBytes,
     required String fileName,
   }) async {
+    final isXlsx = fileName.toLowerCase().endsWith('.xlsx');
     final response = await client.postMultipart(
       '/api/admin/classes/$classId/import-students',
       fieldName: 'file',
       fileBytes: fileBytes,
       fileName: fileName,
-      contentType: 'text/csv',
+      contentType: isXlsx
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'text/csv',
     );
     return AdminImportResult.fromJson(response);
   }
 
   @override
-  Future<RawFileResponse> exportClasses(List<int> classIds) async {
+  Future<RawFileResponse> downloadImportTemplate() async {
+    return client.getBytes('/api/admin/classes/import-template');
+  }
+
+  @override
+  Future<RawFileResponse> exportClasses(List<int> classIds, {String format = 'csv'}) async {
     final ids = classIds.join(',');
-    return client.getBytes('/api/admin/classes/export?ids=$ids');
+    return client.getBytes('/api/admin/classes/export?ids=$ids&format=$format');
   }
 }
