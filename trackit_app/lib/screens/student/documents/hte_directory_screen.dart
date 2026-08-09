@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../models/hte_company.dart';
+import '../../../models/hte_company_contact.dart';
 import '../../../services/hte_directory_service.dart';
 import '../../../utils/app_colors.dart';
 import '../../../widgets/common/back_nav_header.dart';
@@ -22,7 +24,7 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
   bool _loading = true;
   String _query = '';
   String? _industryFilter;
-  final Set<String> _favorites = {};
+  String? _locationFilter;
 
   @override
   void initState() {
@@ -47,12 +49,16 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
           c.industry.toLowerCase().contains(_query.toLowerCase());
       final matchesIndustry =
           _industryFilter == null || c.industry == _industryFilter;
-      return matchesQuery && matchesIndustry;
+      final matchesLocation = _locationFilter == null || c.location == _locationFilter;
+      return matchesQuery && matchesIndustry && matchesLocation;
     }).toList();
   }
 
   List<String> get _industries =>
       _companies.map((c) => c.industry).toSet().toList();
+
+  List<String> get _locations =>
+      _companies.map((c) => c.location).where((l) => l.isNotEmpty).toSet().toList();
 
   Future<void> _refresh() => _load();
 
@@ -62,6 +68,45 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _CompanyDetailSheet(company: company),
+    );
+  }
+
+  void _openLocationFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Filter by Location',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _locationFilter,
+                    decoration: const InputDecoration(labelText: 'Location'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All')),
+                      for (final location in _locations)
+                        DropdownMenuItem(value: location, child: Text(location)),
+                    ],
+                    onChanged: (value) {
+                      setSheetState(() => _locationFilter = value);
+                      setState(() => _locationFilter = value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -80,18 +125,39 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: TextField(
-                          onChanged: (v) => setState(() => _query = v),
-                          decoration: InputDecoration(
-                            hintText: 'Search companies...',
-                            prefixIcon: const Icon(Icons.search),
-                            filled: true,
-                            fillColor: AppColors.cardWhite,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                onChanged: (v) => setState(() => _query = v),
+                                decoration: InputDecoration(
+                                  hintText: 'Search companies...',
+                                  prefixIcon: const Icon(Icons.search),
+                                  filled: true,
+                                  fillColor: AppColors.cardWhite,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: AppColors.cardWhite,
+                              borderRadius: BorderRadius.circular(14),
+                              child: IconButton(
+                                onPressed: _openLocationFilterSheet,
+                                tooltip: 'Filter by location',
+                                icon: Icon(
+                                  Icons.location_on_outlined,
+                                  color: _locationFilter == null
+                                      ? AppColors.primaryMaroon
+                                      : AppColors.accentOrange,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       SizedBox(
@@ -135,8 +201,7 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
                                           ? 'The HTE Directory will list '
                                               "partner companies once the "
                                               "department adds them."
-                                          : 'Try a different search term or '
-                                              'industry filter.',
+                                          : 'Try a different search or filter.',
                                     ),
                                   ],
                                 )
@@ -148,27 +213,13 @@ class _HteDirectoryScreenState extends State<HteDirectoryScreen> {
                                     24,
                                   ),
                                   itemCount: _filtered.length,
-                                  separatorBuilder: (_, __) =>
+                                  separatorBuilder: (_, _) =>
                                       const SizedBox(height: 12),
                                   itemBuilder: (context, index) {
                                     final company = _filtered[index];
                                     return HteCompanyCard(
                                       company: company,
-                                      isFavorite: _favorites.contains(
-                                        company.id,
-                                      ),
                                       onTap: () => _showCompanyDetail(company),
-                                      onToggleFavorite: () {
-                                        setState(() {
-                                          if (_favorites.contains(
-                                            company.id,
-                                          )) {
-                                            _favorites.remove(company.id);
-                                          } else {
-                                            _favorites.add(company.id);
-                                          }
-                                        });
-                                      },
                                     );
                                   },
                                 ),
@@ -229,25 +280,31 @@ class _CompanyDetailSheet extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                company.description,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
               const SizedBox(height: 16),
-              _DetailRow(icon: Icons.location_on, label: company.address),
+              _DetailRow(icon: Icons.location_on_outlined, label: company.address),
               _DetailRow(icon: Icons.email_outlined, label: company.email),
-              _DetailRow(icon: Icons.phone_outlined, label: company.phone),
               if (company.website != null)
                 _DetailRow(icon: Icons.link, label: company.website!),
-              _DetailRow(
-                icon: Icons.work_outline,
-                label: '${company.availablePositions} Positions Available',
-              ),
-              _DetailRow(
-                icon: Icons.event_seat_outlined,
-                label: '${company.availableSlots} OJT Slots',
-              ),
+              if (company.dateAccredited != null)
+                _DetailRow(
+                  icon: Icons.verified_outlined,
+                  label:
+                      'HTE Accredited: ${DateFormat('MMMM d, y').format(company.dateAccredited!)}',
+                ),
+              if (company.contacts.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Available Contact Person',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final contact in company.contacts)
+                  _ContactRow(contact: contact),
+              ],
               const SizedBox(height: 8),
             ],
           ),
@@ -276,6 +333,41 @@ class _DetailRow extends StatelessWidget {
               label,
               style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  final HteCompanyContact contact;
+
+  const _ContactRow({required this.contact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.person_outline, size: 16, color: AppColors.primaryMaroon),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              contact.name,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+            ),
+          ),
+          Row(
+            children: [
+              const Icon(Icons.phone_outlined, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                contact.phone,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+              ),
+            ],
           ),
         ],
       ),

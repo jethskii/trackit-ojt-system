@@ -3,6 +3,7 @@ import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_class_management_screen.dart';
+import 'admin_hte_directory_screen.dart';
 import 'admin_placeholder_screen.dart';
 
 class _AdminSection {
@@ -160,10 +161,7 @@ class _AdminShellState extends State<AdminShell> {
     final pages = [
       const AdminPlaceholderScreen(title: 'Overview', icon: Icons.dashboard_outlined),
       AdminClassManagementScreen(client: widget.client),
-      const AdminPlaceholderScreen(
-        title: 'HTE Directory',
-        icon: Icons.apartment_outlined,
-      ),
+      AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),
       const AdminPlaceholderScreen(title: 'Archive', icon: Icons.archive_outlined),
       const AdminPlaceholderScreen(

@@ -4,17 +4,9 @@ import '../../../utils/app_colors.dart';
 
 class HteCompanyCard extends StatelessWidget {
   final HteCompany company;
-  final bool isFavorite;
   final VoidCallback onTap;
-  final VoidCallback onToggleFavorite;
 
-  const HteCompanyCard({
-    super.key,
-    required this.company,
-    required this.isFavorite,
-    required this.onTap,
-    required this.onToggleFavorite,
-  });
+  const HteCompanyCard({super.key, required this.company, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -50,41 +42,13 @@ class HteCompanyCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            company.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        Semantics(
-                          label: isFavorite
-                              ? 'Remove ${company.name} from favorites'
-                              : 'Add ${company.name} to favorites',
-                          button: true,
-                          child: InkWell(
-                            onTap: onToggleFavorite,
-                            borderRadius: BorderRadius.circular(20),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Icon(
-                                isFavorite
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: 20,
-                                color: isFavorite
-                                    ? AppColors.statRedIcon
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      company.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -106,7 +70,7 @@ class HteCompanyCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            company.address,
+                            company.location,
                             style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
@@ -117,28 +81,10 @@ class HteCompanyCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.statBlueBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${company.availableSlots} Slots Available',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.statBlueIcon,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
