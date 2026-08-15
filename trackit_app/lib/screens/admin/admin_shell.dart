@@ -175,7 +175,7 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      AdminOverviewScreen(client: widget.client),
+      AdminOverviewScreen(client: widget.client, adminName: _admin.name),
       AdminClassManagementScreen(client: widget.client),
       AdminHteDirectoryScreen(client: widget.client),
       AdminAnnouncementsScreen(client: widget.client),

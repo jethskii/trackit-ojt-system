@@ -13,7 +13,7 @@ const _cardsWideBreakpoint = 640.0;
 
 /// Embedded in AdminFacultyScreen's right-hand pane -- a ValueKey on
 /// (instructorId, academicYear) on the caller's side forces a fresh
-/// State whenever either changes, mirroring AdminClassDetailPanel.
+/// State whenever either changes, mirroring AdminClassManagementDetailPanel.
 class AdminInstructorDetailPanel extends StatefulWidget {
   final int instructorId;
   final String? academicYear;

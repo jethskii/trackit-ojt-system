@@ -18,8 +18,7 @@ const _wideBreakpoint = 640.0;
 
 enum _StudentTableMode { showSome, expanded }
 
-/// Class Management's own detail panel -- a distinct widget from
-/// Overview's AdminClassDetailPanel (which must stay exactly as it is).
+/// Class Management's own detail panel for the Sections (Students) tab.
 /// Shares the same AdminClassDetail/AdminClassStudent model and
 /// AdminClassesService, but surfaces the OJT-progress fields (Assigned
 /// Company, Status, Contact Person, OJT Supervisor) that were already in

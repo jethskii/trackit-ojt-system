@@ -1,71 +1,63 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_class.dart';
+import '../../models/admin_overview.dart';
 import '../../services/admin_classes_service.dart';
+import '../../services/admin_overview_service.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
+import '../../widgets/admin/academic_year_picker.dart';
+import '../../widgets/admin/donut_chart.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
-import 'admin_class_detail_panel.dart';
-import 'admin_faculty_screen.dart';
+import 'admin_overview_detail_screens.dart';
 
-// Below this width there's no room for the class list and its detail pane
-// side by side -- falls back to a single pane (list, or detail-with-a-
-// back-button once a class is picked).
-const _wideBreakpoint = 720.0;
+const _wideBreakpoint = 980.0;
+const _cardsWideBreakpoint = 700.0;
 
-/// The current calendar month decides a sensible starting suggestion for
-/// a brand-new academic year (only used to bootstrap the picker when the
-/// database has no classes -- and therefore no real academic years --
-/// yet at all). Aug-Dec is treated as the start of a school year.
-String _suggestedAcademicYear() {
-  final now = DateTime.now();
-  final startYear = now.month >= 8 ? now.year : now.year - 1;
-  return '$startYear-${startYear + 1}';
-}
-
-/// The Admin dashboard's central overview: high-level Sections/Students and
-/// Faculty/Instructors information, switchable via the top tabs. This used
-/// to live under the "Class Management" sidebar item -- it was moved here
-/// because it's dashboard/overview content (browse + drill into a section
-/// or instructor), not the CRUD-focused "Class Management" feature itself.
+/// The Admin's central monitoring dashboard -- entirely computed from
+/// real data via GET /api/admin/overview (one aggregation endpoint,
+/// mirroring teacherDashboard.js's shape but school-wide and
+/// year-scoped). This is a from-scratch replacement of what used to live
+/// here (the Sections/Faculty browsing UI, now merged into Class
+/// Management) -- Overview's job is now purely "summarize the system,"
+/// not "browse and manage it."
 class AdminOverviewScreen extends StatefulWidget {
   final ApiClient client;
+  final String adminName;
 
-  const AdminOverviewScreen({super.key, required this.client});
+  const AdminOverviewScreen({super.key, required this.client, required this.adminName});
 
   @override
   State<AdminOverviewScreen> createState() => _AdminOverviewScreenState();
 }
 
 class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
-  late final AdminClassesService _classesService = HttpAdminClassesService(
-    widget.client,
-  );
+  late final AdminClassesService _classesService = HttpAdminClassesService(widget.client);
+  late final AdminOverviewService _overviewService = HttpAdminOverviewService(widget.client);
 
-  int _topTab = 0; // 0 = Sections (Students), 1 = Faculty (Instructors)
-
-  List<AdminAcademicYear> _academicYears = [];
-  String? _selectedAcademicYear;
+  List<AdminAcademicYear> _years = [];
+  String? _selectedYear;
   bool _yearsLoading = true;
   String? _yearsError;
 
-  List<AdminClassSummary> _classes = [];
-  bool _classesLoading = false;
-  String? _classesError;
-  String _query = '';
-  int? _selectedClassId;
-  // Only meaningful on a narrow layout, where list and detail can't share
-  // the screen -- true once a class has been picked, so the detail pane
-  // (with a back button) replaces the list instead of sitting beside it.
-  bool _narrowShowDetail = false;
+  AdminOverview? _overview;
+  bool _overviewLoading = true;
+  String? _overviewError;
 
   @override
   void initState() {
     super.initState();
-    _loadAcademicYears();
+    _loadYears();
   }
 
-  Future<void> _loadAcademicYears({String? preferYear}) async {
+  String _suggestedAcademicYear() {
+    final now = DateTime.now();
+    final startYear = now.month >= 8 ? now.year : now.year - 1;
+    return '$startYear-${startYear + 1}';
+  }
+
+  Future<void> _loadYears() async {
     setState(() {
       _yearsLoading = true;
       _yearsError = null;
@@ -76,15 +68,14 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       final working = years.isEmpty
           ? [AdminAcademicYear(year: _suggestedAcademicYear(), classCount: 0, isCurrent: true)]
           : years;
-      final target = preferYear ??
-          _selectedAcademicYear ??
+      final target = _selectedYear ??
           working.firstWhere((y) => y.isCurrent, orElse: () => working.first).year;
       setState(() {
-        _academicYears = working;
-        _selectedAcademicYear = target;
+        _years = working;
+        _selectedYear = target;
         _yearsLoading = false;
       });
-      await _loadClassesForYear(target);
+      await _loadOverview(target);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -94,273 +85,83 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     }
   }
 
-  Future<void> _loadClassesForYear(String year) async {
+  Future<void> _loadOverview(String year) async {
     setState(() {
-      _classesLoading = true;
-      _classesError = null;
+      _overviewLoading = true;
+      _overviewError = null;
     });
     try {
-      final classes = await _classesService.getClasses(academicYear: year);
+      final overview = await _overviewService.getOverview(academicYear: year);
       if (!mounted) return;
       setState(() {
-        _classes = classes;
-        _classesLoading = false;
-        final stillPresent = classes.any((c) => c.id == _selectedClassId);
-        if (!stillPresent) {
-          _selectedClassId = classes.isNotEmpty ? classes.first.id : null;
-        }
+        _overview = overview;
+        _overviewLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _classesError = e.toString();
-        _classesLoading = false;
+        _overviewError = e.toString();
+        _overviewLoading = false;
       });
     }
   }
 
-  Future<void> _selectAcademicYear(String year) async {
-    if (year == _selectedAcademicYear) return;
-    setState(() {
-      _selectedAcademicYear = year;
-      _selectedClassId = null;
-      _narrowShowDetail = false;
-    });
-    await _loadClassesForYear(year);
+  Future<void> _selectYear(String year) async {
+    if (year == _selectedYear) return;
+    setState(() => _selectedYear = year);
+    await _loadOverview(year);
   }
 
-  List<AdminClassSummary> get _filtered {
-    if (_query.isEmpty) return _classes;
-    final q = _query.toLowerCase();
-    return _classes
-        .where(
-          (c) =>
-              c.program.toLowerCase().contains(q) ||
-              c.section.toLowerCase().contains(q) ||
-              (c.instructorName?.toLowerCase().contains(q) ?? false),
-        )
-        .toList();
+  String get _greeting {
+    final hour = nowInPh().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
-  Map<String, List<AdminClassSummary>> get _groupedByProgram {
-    final grouped = <String, List<AdminClassSummary>>{};
-    for (final c in _filtered) {
-      grouped.putIfAbsent(c.program, () => []).add(c);
-    }
-    return grouped;
-  }
-
-  Future<void> _addAcademicYear() async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final year = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Academic Year'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Academic Year', hintText: 'e.g. 2027-2028'),
-            validator: (v) {
-              if (v == null || !RegExp(r'^\d{4}-\d{4}$').hasMatch(v.trim())) {
-                return 'Use the format YYYY-YYYY';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(context).pop(controller.text.trim());
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryMaroon,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-    if (year == null || !mounted) return;
-    setState(() {
-      if (_academicYears.every((y) => y.year != year)) {
-        _academicYears = [
-          ..._academicYears,
-          AdminAcademicYear(year: year, classCount: 0, isCurrent: false),
-        ]..sort((a, b) => b.year.compareTo(a.year));
-      }
-    });
-    await _selectAcademicYear(year);
-  }
-
-  Future<void> _openCreateSectionDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final programController = TextEditingController(text: 'BSIT');
-    final sectionController = TextEditingController();
-    final yearController = TextEditingController(text: _selectedAcademicYear ?? _suggestedAcademicYear());
-    bool submitting = false;
-    String? error;
-
-    final created = await showDialog<AdminClassSummary>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> submit() async {
-            if (!formKey.currentState!.validate()) return;
-            setDialogState(() {
-              submitting = true;
-              error = null;
-            });
-            try {
-              final section = await _classesService.createSection(
-                program: programController.text.trim(),
-                section: sectionController.text.trim(),
-                academicYear: yearController.text.trim(),
-              );
-              if (!dialogContext.mounted) return;
-              Navigator.of(dialogContext).pop(section);
-            } on ApiException catch (e) {
-              setDialogState(() {
-                error = e.message;
-                submitting = false;
-              });
-            }
-          }
-
-          return AlertDialog(
-            title: const Text('Create Section'),
-            content: SizedBox(
-              width: 360,
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (error != null) ...[
-                        Text(error!, style: const TextStyle(color: AppColors.statRedIcon, fontSize: 13)),
-                        const SizedBox(height: 10),
-                      ],
-                      TextFormField(
-                        controller: programController,
-                        decoration: const InputDecoration(labelText: 'Program'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: sectionController,
-                        decoration: const InputDecoration(labelText: 'Section', hintText: 'e.g. 4A'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: yearController,
-                        decoration: const InputDecoration(
-                          labelText: 'Academic Year',
-                          hintText: 'e.g. 2026-2027',
-                        ),
-                        validator: (v) {
-                          if (v == null || !RegExp(r'^\d{4}-\d{4}$').hasMatch(v.trim())) {
-                            return 'Use the format YYYY-YYYY';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: submitting ? null : submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryMaroon,
-                  foregroundColor: Colors.white,
-                ),
-                child: submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Create'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (created == null || !mounted) return;
-    setState(() => _selectedClassId = created.id);
-    // A brand-new academic year typed in the dialog wouldn't be in
-    // _academicYears yet -- reloading picks it up as real data now that
-    // a class actually exists for it.
-    await _loadAcademicYears(preferYear: created.academicYear);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Section "${created.program} - ${created.section}" created.')),
-    );
+  void _push(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_yearsLoading) return const SkeletonList();
+    if (_yearsError != null) {
+      return EmptyStateView(
+        icon: Icons.error_outline,
+        title: 'Could not load academic years',
+        message: _yearsError!,
+        actionLabel: 'Retry',
+        onAction: _loadYears,
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= _wideBreakpoint;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(isWide),
-            const SizedBox(height: 14),
-            _TopTabs(
-              selected: _topTab,
-              onChanged: (i) => setState(() => _topTab = i),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _yearsLoading
-                  ? const SkeletonList()
-                  : _yearsError != null
-                  ? EmptyStateView(
-                      icon: Icons.error_outline,
-                      title: 'Could not load academic years',
-                      message: _yearsError!,
-                      actionLabel: 'Retry',
-                      onAction: _loadAcademicYears,
-                    )
-                  // IndexedStack (not a rebuild-on-switch) so flipping
-                  // between Sections and Faculty feels like two sides of
-                  // the same screen -- neither side loses its selection
-                  // or scroll position when you switch away and back.
-                  : IndexedStack(
-                      index: _topTab,
-                      children: [
-                        _buildContent(isWide),
-                        AdminFacultyScreen(
-                          client: widget.client,
-                          academicYear: _selectedAcademicYear,
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(isWide),
+              const SizedBox(height: 18),
+              if (_overviewLoading)
+                const Padding(padding: EdgeInsets.only(top: 40), child: SkeletonList())
+              else if (_overviewError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: EmptyStateView(
+                    icon: Icons.error_outline,
+                    title: 'Could not load the overview',
+                    message: _overviewError!,
+                    actionLabel: 'Retry',
+                    onAction: () => _loadOverview(_selectedYear!),
+                  ),
+                )
+              else
+                _buildDashboard(_overview!, isWide),
+            ],
+          ),
         );
       },
     );
@@ -371,410 +172,561 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Overview',
+          '$_greeting, ${widget.adminName.split(' ').first}! \u{1F44B}',
           style: TextStyle(
-            fontSize: isWide ? 24 : 20,
+            fontSize: isWide ? 22 : 19,
             fontWeight: FontWeight.bold,
             color: AppColors.primaryMaroon,
           ),
         ),
         const SizedBox(height: 2),
         const Text(
-          'High-level view of sections, instructors, and students.',
+          "Here's today's OJT overview.",
           style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
     );
-    final yearPicker = _AcademicYearPicker(
-      years: _academicYears,
-      selected: _selectedAcademicYear,
-      onSelected: _selectAcademicYear,
-      onAddNew: _addAcademicYear,
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AcademicYearPicker(years: _years, selected: _selectedYear, onSelected: _selectYear),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _overviewLoading ? null : () => _loadOverview(_selectedYear!),
+          icon: const Icon(Icons.refresh, color: AppColors.primaryMaroon),
+        ),
+      ],
     );
 
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [Expanded(child: titleBlock), yearPicker],
+        children: [Expanded(child: titleBlock), controls],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [titleBlock, const SizedBox(height: 12), yearPicker],
+      children: [titleBlock, const SizedBox(height: 12), controls],
     );
   }
 
-  Widget _buildContent(bool isWide) {
+  Widget _buildDashboard(AdminOverview overview, bool isWide) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildStatCards(overview, isWide),
+        const SizedBox(height: 16),
+        _buildCharts(overview, isWide),
+        const SizedBox(height: 16),
+        _buildBottomRow(overview, isWide),
+      ],
+    );
+  }
+
+  Widget _buildStatCards(AdminOverview overview, bool isWide) {
+    final attendancePct = overview.totalStudents > 0
+        ? (overview.clockedInToday / overview.totalStudents * 100)
+        : 0.0;
+    final completedPct = overview.totalStudents > 0
+        ? (overview.completedCount / overview.totalStudents * 100)
+        : 0.0;
+    final cards = [
+      _StatCard(
+        icon: Icons.groups_outlined,
+        iconBg: AppColors.statBlueBg,
+        iconColor: AppColors.statBlueIcon,
+        label: 'Total OJT Students',
+        value: '${overview.totalStudents}',
+        subtitle: 'Currently enrolled / active',
+      ),
+      _StatCard(
+        icon: Icons.person_outline,
+        iconBg: AppColors.statRedBg,
+        iconColor: AppColors.statRedIcon,
+        label: 'Total Instructors / Supervisors',
+        value: '${overview.totalInstructors}',
+        subtitle: 'Handling OJT students',
+      ),
+      _StatCard(
+        icon: Icons.check_circle_outline,
+        iconBg: AppColors.successGreenBg,
+        iconColor: AppColors.successGreenText,
+        label: 'Clocked In Today',
+        value: '${overview.clockedInToday} / ${overview.totalStudents}',
+        subtitle: '${attendancePct.toStringAsFixed(1)}% clocked in',
+        subtitleColor: AppColors.successGreenText,
+      ),
+      _StatCard(
+        icon: Icons.emoji_events_outlined,
+        iconBg: AppColors.statOrangeBg,
+        iconColor: AppColors.statOrangeIcon,
+        label: 'OJT Students Completed',
+        value: '${overview.completedCount}',
+        subtitle: '${completedPct.toStringAsFixed(1)}% of total students',
+      ),
+    ];
+
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 320, child: _buildListPanel(narrow: false)),
-          const SizedBox(width: 16),
-          Expanded(child: _buildDetailPanel()),
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 14),
+            Expanded(child: cards[i]),
+          ],
         ],
       );
     }
-
-    if (_narrowShowDetail && _selectedClassId != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _narrowShowDetail = false),
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Back to Sections'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.primaryMaroon),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(child: _buildDetailPanel()),
-        ],
-      );
-    }
-
-    return _buildListPanel(narrow: true);
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: [for (final c in cards) SizedBox(width: 260, child: c)],
+    );
   }
 
-  Widget _buildListPanel({required bool narrow}) {
-    final grouped = _groupedByProgram;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(16),
+  Widget _buildCharts(AdminOverview overview, bool isWide) {
+    final attendanceCard = _ChartCard(
+      title: "TODAY'S ATTENDANCE OVERVIEW",
+      chart: DonutChart(
+        centerLabel: '${overview.clockedInToday}',
+        centerSubLabel: 'Clocked In Today\n/${overview.totalStudents}',
+        segments: [
+          DonutSegment(label: 'Clocked In', value: overview.clockedInToday, color: AppColors.successGreenText),
+          DonutSegment(label: 'Not Yet Clocked In', value: overview.notYetClockedInToday, color: AppColors.statOrangeIcon),
+          DonutSegment(label: 'Late / Missed', value: overview.lateMissedToday, color: AppColors.statRedIcon),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Sections List',
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: InputDecoration(
-                    hintText: 'Search section...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(
+      footer: overview.totalStudents == 0
+          ? null
+          : Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.successGreenBg,
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    ),
+                    child: Text(
+                      overview.clockedInToday == overview.totalStudents
+                          ? 'Great job! Everyone has clocked in today.'
+                          : '${overview.notYetClockedInToday + overview.lateMissedToday} student'
+                                '${(overview.notYetClockedInToday + overview.lateMissedToday) == 1 ? '' : 's'} '
+                                'still need${(overview.notYetClockedInToday + overview.lateMissedToday) == 1 ? 's' : ''} to clock in.',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.successGreenText, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(
-                onPressed: _openCreateSectionDialog,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Create'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryMaroon,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
+              ],
+            ),
+      buttonLabel: 'View Attendance List',
+      onPressed: () => _push(
+        AdminOverviewAttendanceListScreen(
+          entries: overview.attendanceList,
+          lateClockInHourPht: overview.lateClockInHourPht,
+        ),
+      ),
+    );
+
+    final completionCard = _ChartCard(
+      title: 'OJT COMPLETION STATUS',
+      chart: DonutChart(
+        centerLabel: '${overview.totalStudents}',
+        centerSubLabel: 'Total Students',
+        segments: [
+          DonutSegment(label: 'Completed', value: overview.completedCount, color: AppColors.successGreenText),
+          DonutSegment(label: 'Ongoing', value: overview.ongoingCount, color: AppColors.statBlueIcon),
+          DonutSegment(label: 'Not Started', value: overview.notStartedCount, color: AppColors.statOrangeIcon),
+        ],
+      ),
+      buttonLabel: 'View Student List',
+      onPressed: () => _push(AdminOverviewStudentListScreen(students: overview.studentList)),
+    );
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: attendanceCard),
+          const SizedBox(width: 14),
+          Expanded(child: completionCard),
+        ],
+      );
+    }
+    return Column(
+      children: [attendanceCard, const SizedBox(height: 14), completionCard],
+    );
+  }
+
+  Widget _buildBottomRow(AdminOverview overview, bool isWide) {
+    final tasksCard = _PendingTasksCard(overview: overview, onViewAll: () => _push(AdminOverviewTasksScreen(overview: overview)));
+    final hoursCard = _HoursCard(overview: overview, onViewSummary: () => _push(AdminOverviewHoursSummaryScreen(overview: overview)));
+    final atRiskCard = _AtRiskCard(overview: overview, onViewAll: () => _push(AdminOverviewAtRiskScreen(overview: overview)));
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: tasksCard),
+          const SizedBox(width: 14),
+          Expanded(child: hoursCard),
+          const SizedBox(width: 14),
+          Expanded(child: atRiskCard),
+        ],
+      );
+    }
+    return Column(
+      children: [tasksCard, const SizedBox(height: 14), hoursCard, const SizedBox(height: 14), atRiskCard],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final String subtitle;
+  final Color? subtitleColor;
+
+  const _StatCard({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.subtitle,
+    this.subtitleColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 18, color: iconColor),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: _classesLoading
-                ? const SkeletonList()
-                : _classesError != null
-                ? EmptyStateView(
-                    icon: Icons.error_outline,
-                    title: 'Could not load sections',
-                    message: _classesError!,
-                    actionLabel: 'Retry',
-                    onAction: () => _loadClassesForYear(_selectedAcademicYear!),
-                  )
-                : grouped.isEmpty
-                ? EmptyStateView(
-                    icon: Icons.class_outlined,
-                    title: _classes.isEmpty ? 'No sections yet' : 'No matching sections',
-                    message: _classes.isEmpty
-                        ? 'Tap "Create" to add the first section for A.Y. $_selectedAcademicYear.'
-                        : 'Try a different search.',
-                  )
-                : ListView(
+          Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: subtitleColor ?? AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartCard extends StatelessWidget {
+  final String title;
+  final Widget chart;
+  final Widget? footer;
+  final String buttonLabel;
+  final VoidCallback onPressed;
+
+  const _ChartCard({
+    required this.title,
+    required this.chart,
+    this.footer,
+    required this.buttonLabel,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.4)),
+          const SizedBox(height: 16),
+          chart,
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= _cardsWideBreakpoint;
+              final button = OutlinedButton(
+                onPressed: onPressed,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryMaroon,
+                  side: const BorderSide(color: AppColors.primaryMaroon),
+                ),
+                child: Text(buttonLabel),
+              );
+              if (footer == null) return Align(alignment: Alignment.centerRight, child: button);
+              if (wide) {
+                return Row(
+                  children: [Expanded(child: footer!), const SizedBox(width: 10), button],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [footer!, const SizedBox(height: 10), Align(alignment: Alignment.centerRight, child: button)],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingTasksCard extends StatelessWidget {
+  final AdminOverview overview;
+  final VoidCallback onViewAll;
+
+  const _PendingTasksCard({required this.overview, required this.onViewAll});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (
+        icon: Icons.person_add_alt_outlined,
+        label: 'Student accounts still preparing',
+        subtitle: 'Awaiting account activation',
+        count: overview.accountsPreparing.length,
+      ),
+      (
+        icon: Icons.description_outlined,
+        label: 'Documents awaiting review / validation',
+        subtitle: 'Uploaded by students',
+        count: overview.documentsAwaitingReview.length,
+      ),
+      (
+        icon: Icons.apartment_outlined,
+        label: 'Company requests for verification',
+        subtitle: 'For evaluation',
+        count: overview.companyVerification.length,
+      ),
+      (
+        icon: Icons.edit_note_outlined,
+        label: 'Attendance correction requests',
+        subtitle: 'For review',
+        count: overview.correctionRequests.length,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('ADMIN PENDING TASKS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.4)),
+          const SizedBox(height: 12),
+          if (overview.pendingTasksTotal == 0)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('Nothing pending right now.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            )
+          else
+            for (final item in items)
+              if (item.count > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
                     children: [
-                      for (final program in grouped.keys) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-                          child: Text(
-                            program,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
+                        alignment: Alignment.center,
+                        child: Icon(item.icon, size: 16, color: AppColors.primaryMaroon),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                            Text(item.subtitle, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+                          ],
                         ),
-                        for (final c in grouped[program]!) ...[
-                          _SectionListTile(
-                            summary: c,
-                            selected: c.id == _selectedClassId,
-                            onTap: () => setState(() {
-                              _selectedClassId = c.id;
-                              if (narrow) _narrowShowDetail = true;
-                            }),
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                      ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(color: AppColors.statRedBg, borderRadius: BorderRadius.circular(20)),
+                        child: Text('${item.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.statRedIcon)),
+                      ),
                     ],
                   ),
+                ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onViewAll,
+              icon: const Icon(Icons.arrow_forward, size: 14),
+              label: const Text('View all tasks'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primaryMaroon),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HoursCard extends StatelessWidget {
+  final AdminOverview overview;
+  final VoidCallback onViewSummary;
+
+  const _HoursCard({required this.overview, required this.onViewSummary});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (overview.overallCompletionPercent / 100).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('OVERALL OJT HOURS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.4)),
+          const SizedBox(height: 4),
+          const Text('Total accumulated hours rendered by all students', style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: AppColors.statRedBg, borderRadius: BorderRadius.circular(10)),
+                alignment: Alignment.center,
+                child: const Icon(Icons.access_time, color: AppColors.statRedIcon, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${_formatHours(overview.totalHoursRendered)} hrs', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    const Text('Total Hours Rendered', style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Required Hours\n(All Active Students)', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                    const SizedBox(height: 2),
+                    Text('${_formatHours(overview.totalHoursRequired)} hrs', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('Overall Completion', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                  const SizedBox(height: 2),
+                  Text('${overview.overallCompletionPercent.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.primaryMaroon)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 6,
+              backgroundColor: AppColors.background,
+              valueColor: const AlwaysStoppedAnimation(AppColors.primaryMaroon),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onViewSummary,
+              icon: const Icon(Icons.arrow_forward, size: 14),
+              label: const Text('View Hours Summary'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primaryMaroon),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailPanel() {
-    if (_selectedClassId == null) {
-      return Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: EmptyStateView(
-            icon: Icons.class_outlined,
-            title: 'Select a section',
-            message: 'Choose a section on the left to view its information and students.',
-          ),
-        ),
-      );
-    }
-    return AdminClassDetailPanel(
-      key: ValueKey(_selectedClassId),
-      classId: _selectedClassId!,
-      classesService: _classesService,
-      onStudentCountChanged: () => _loadClassesForYear(_selectedAcademicYear!),
-    );
-  }
+  String _formatHours(double hours) => hours == hours.roundToDouble() ? hours.toInt().toString() : hours.toStringAsFixed(1);
 }
 
-class _TopTabs extends StatelessWidget {
-  final int selected;
-  final ValueChanged<int> onChanged;
+class _AtRiskCard extends StatelessWidget {
+  final AdminOverview overview;
+  final VoidCallback onViewAll;
 
-  const _TopTabs({required this.selected, required this.onChanged});
+  const _AtRiskCard({required this.overview, required this.onViewAll});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _TopTabButton(
-          icon: Icons.groups_outlined,
-          label: 'Sections (Students)',
-          selected: selected == 0,
-          onTap: () => onChanged(0),
-        ),
-        const SizedBox(width: 8),
-        _TopTabButton(
-          icon: Icons.badge_outlined,
-          label: 'Faculty (Instructors)',
-          selected: selected == 1,
-          onTap: () => onChanged(1),
-        ),
-      ],
-    );
-  }
-}
+    final items = [
+      ('Below 50% of required hours', overview.belowHalfHours.length),
+      ('No attendance this week', overview.noAttendanceThisWeek.length),
+      ('Behind schedule (based on days elapsed)', overview.behindSchedule.length),
+    ];
+    final totalAtRisk = overview.atRiskUnion.length;
 
-class _TopTabButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TopTabButton({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primaryMaroon : AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: selected ? Colors.white : AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppColors.textPrimary,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('STUDENTS AT RISK', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.4)),
+          const SizedBox(height: 4),
+          const Text('Students who may need attention', style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+          const SizedBox(height: 12),
+          if (totalAtRisk == 0)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('No students currently at risk.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            )
+          else
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(item.$1, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary))),
+                    Text('${item.$2}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.statRedIcon)),
+                  ],
                 ),
               ),
-            ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onViewAll,
+              icon: const Icon(Icons.arrow_forward, size: 14),
+              label: const Text('View At-Risk Students'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primaryMaroon),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AcademicYearPicker extends StatelessWidget {
-  final List<AdminAcademicYear> years;
-  final String? selected;
-  final ValueChanged<String> onSelected;
-  final VoidCallback onAddNew;
-
-  const _AcademicYearPicker({
-    required this.years,
-    required this.selected,
-    required this.onSelected,
-    required this.onAddNew,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final matches = years.where((y) => y.year == selected);
-    final current = matches.isEmpty ? null : matches.first;
-    return PopupMenuButton<String>(
-      onSelected: (value) {
-        if (value == '__add__') {
-          onAddNew();
-        } else {
-          onSelected(value);
-        }
-      },
-      itemBuilder: (context) => [
-        for (final y in years)
-          PopupMenuItem(
-            value: y.year,
-            child: Text(y.isCurrent ? '${y.year} (Active)' : y.year),
-          ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: '__add__', child: Text('+ Add Academic Year')),
-      ],
-      child: IgnorePointer(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.cardWhite,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.chipGrayBg),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Academic Year: ',
-                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-              ),
-              Text(
-                selected ?? '--',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (current?.isCurrent ?? false)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.successGreenBg,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Active',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.successGreenText,
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionListTile extends StatelessWidget {
-  final AdminClassSummary summary;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SectionListTile({required this.summary, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primaryMaroon : AppColors.background,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(
-                Icons.groups_outlined,
-                size: 16,
-                color: selected ? Colors.white : AppColors.primaryMaroon,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  summary.section,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : AppColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '${summary.studentCount}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white70 : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

@@ -18,8 +18,9 @@ class AdminFacultyScreen extends StatefulWidget {
   final ApiClient client;
 
   /// The Academic Year selector lives in the shared header above both
-  /// tabs -- this just reacts to it, the same way AdminClassDetailPanel
-  /// reacts to a selected section changing.
+  /// tabs -- this just reacts to it, the same way
+  /// AdminClassManagementDetailPanel reacts to a selected section
+  /// changing.
   final String? academicYear;
 
   const AdminFacultyScreen({super.key, required this.client, required this.academicYear});

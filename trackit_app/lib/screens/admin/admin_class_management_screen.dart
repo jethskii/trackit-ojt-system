@@ -4,23 +4,24 @@ import '../../services/admin_classes_service.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/file_download.dart';
+import '../../widgets/admin/academic_year_picker.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
 import 'admin_class_management_detail_panel.dart';
+import 'admin_faculty_screen.dart';
 
 // Below this width there's no room for the class list and its detail pane
 // side by side -- falls back to a single pane (list, or detail-with-a-
 // back-button once a class is picked).
 const _wideBreakpoint = 720.0;
 
-/// Class Management: browse every section school-wide (flat list, all
-/// academic years -- year-scoped browsing already lives in Overview) and
-/// manage a section's activation code, students, and data export/import.
-/// This is deliberately a separate screen/widget tree from Overview's own
-/// list+detail pair, even though both read the same AdminClassesService --
-/// Overview must stay untouched, and this view's card style, lack of a
-/// year selector, and multi-select export are real, spec-driven
-/// differences, not just a reskin.
+/// Class Management: Sections (Students) and Faculty (Instructors), both
+/// scoped to one academic year at a time -- the Faculty side
+/// (AdminFacultyScreen) used to live under the old Overview page; it's
+/// merged in here now that Overview became the stats dashboard, so
+/// nothing that was built is lost. Sections management (activation code,
+/// students, data export/import) is this screen's own real feature, not
+/// a reskin of anything -- see admin_class_management_detail_panel.dart.
 class AdminClassManagementScreen extends StatefulWidget {
   final ApiClient client;
 
@@ -36,6 +37,13 @@ class _AdminClassManagementScreenState
   late final AdminClassesService _classesService = HttpAdminClassesService(
     widget.client,
   );
+
+  int _topTab = 0; // 0 = Sections (Students), 1 = Faculty (Instructors)
+
+  List<AdminAcademicYear> _years = [];
+  String? _selectedYear;
+  bool _yearsLoading = true;
+  String? _yearsError;
 
   List<AdminClassSummary> _classes = [];
   bool _loading = true;
@@ -53,16 +61,108 @@ class _AdminClassManagementScreenState
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadYears();
+  }
+
+  String _suggestedAcademicYear() {
+    final now = DateTime.now();
+    final startYear = now.month >= 8 ? now.year : now.year - 1;
+    return '$startYear-${startYear + 1}';
+  }
+
+  Future<void> _loadYears({String? preferYear}) async {
+    setState(() {
+      _yearsLoading = true;
+      _yearsError = null;
+    });
+    try {
+      final years = await _classesService.getAcademicYears();
+      if (!mounted) return;
+      final working = years.isEmpty
+          ? [AdminAcademicYear(year: _suggestedAcademicYear(), classCount: 0, isCurrent: true)]
+          : years;
+      final target = preferYear ??
+          _selectedYear ??
+          working.firstWhere((y) => y.isCurrent, orElse: () => working.first).year;
+      setState(() {
+        _years = working;
+        _selectedYear = target;
+        _yearsLoading = false;
+      });
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _yearsError = e.toString();
+        _yearsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _addAcademicYear() async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final year = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Academic Year'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Academic Year', hintText: 'e.g. 2027-2028'),
+            validator: (v) {
+              if (v == null || !RegExp(r'^\d{4}-\d{4}$').hasMatch(v.trim())) {
+                return 'Use the format YYYY-YYYY';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(controller.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryMaroon, foregroundColor: Colors.white),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (year == null || !mounted) return;
+    setState(() {
+      if (_years.every((y) => y.year != year)) {
+        _years = [..._years, AdminAcademicYear(year: year, classCount: 0, isCurrent: false)]
+          ..sort((a, b) => b.year.compareTo(a.year));
+      }
+    });
+    await _selectYear(year);
+  }
+
+  Future<void> _selectYear(String year) async {
+    if (year == _selectedYear) return;
+    setState(() {
+      _selectedYear = year;
+      _selectedClassId = null;
+      _narrowShowDetail = false;
+      _selectedForExport.clear();
+    });
+    await _load();
   }
 
   Future<void> _load() async {
+    if (_selectedYear == null) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final classes = await _classesService.getClasses();
+      final classes = await _classesService.getClasses(academicYear: _selectedYear);
       if (!mounted) return;
       setState(() {
         _classes = classes;
@@ -95,6 +195,123 @@ class _AdminClassManagementScreenState
         .toList();
   }
 
+  Future<void> _openCreateSectionDialog() async {
+    final formKey = GlobalKey<FormState>();
+    final programController = TextEditingController(text: 'BSIT');
+    final sectionController = TextEditingController();
+    final yearController = TextEditingController(text: _selectedYear ?? _suggestedAcademicYear());
+    bool submitting = false;
+    String? error;
+
+    final created = await showDialog<AdminClassSummary>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> submit() async {
+            if (!formKey.currentState!.validate()) return;
+            setDialogState(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final section = await _classesService.createSection(
+                program: programController.text.trim(),
+                section: sectionController.text.trim(),
+                academicYear: yearController.text.trim(),
+              );
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pop(section);
+            } on ApiException catch (e) {
+              setDialogState(() {
+                error = e.message;
+                submitting = false;
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('Create Section'),
+            content: SizedBox(
+              width: 360,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (error != null) ...[
+                        Text(error!, style: const TextStyle(color: AppColors.statRedIcon, fontSize: 13)),
+                        const SizedBox(height: 10),
+                      ],
+                      TextFormField(
+                        controller: programController,
+                        decoration: const InputDecoration(labelText: 'Program'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: sectionController,
+                        decoration: const InputDecoration(labelText: 'Section', hintText: 'e.g. 4A'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: yearController,
+                        decoration: const InputDecoration(
+                          labelText: 'Academic Year',
+                          hintText: 'e.g. 2026-2027',
+                        ),
+                        validator: (v) {
+                          if (v == null || !RegExp(r'^\d{4}-\d{4}$').hasMatch(v.trim())) {
+                            return 'Use the format YYYY-YYYY';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: submitting ? null : submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryMaroon,
+                  foregroundColor: Colors.white,
+                ),
+                child: submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (created == null || !mounted) return;
+    setState(() => _selectedClassId = created.id);
+    // A brand-new academic year typed in the dialog wouldn't be in _years
+    // yet -- reloading picks it up as real data now that a class
+    // actually exists for it, and switches to it so the new section is
+    // actually visible.
+    await _loadYears(preferYear: created.academicYear);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Section "${created.program} - ${created.section}" created.')),
+    );
+  }
+
   Future<void> _exportIds(List<int> ids, String format) async {
     if (ids.isEmpty) return;
     try {
@@ -124,46 +341,72 @@ class _AdminClassManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_yearsLoading) return const SkeletonList();
+    if (_yearsError != null) {
+      return EmptyStateView(
+        icon: Icons.error_outline,
+        title: 'Could not load academic years',
+        message: _yearsError!,
+        actionLabel: 'Retry',
+        onAction: _loadYears,
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= _wideBreakpoint;
-        return Stack(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(isWide),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _loading
-                      ? const SkeletonList()
-                      : _error != null
-                      ? EmptyStateView(
-                          icon: Icons.error_outline,
-                          title: 'Could not load classes',
-                          message: _error!,
-                          actionLabel: 'Retry',
-                          onAction: _load,
-                        )
-                      : _buildContent(isWide),
-                ),
-              ],
-            ),
-            if (_selectedForExport.isNotEmpty)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _SelectionBar(
-                  count: _selectedForExport.length,
-                  exporting: _bulkExporting,
-                  onExport: _exportSelected,
-                  onClear: () => setState(_selectedForExport.clear),
-                ),
+            _buildHeader(isWide),
+            const SizedBox(height: 14),
+            _TopTabs(selected: _topTab, onChanged: (i) => setState(() => _topTab = i)),
+            const SizedBox(height: 16),
+            Expanded(
+              // IndexedStack (not a rebuild-on-switch) so flipping between
+              // Sections and Faculty keeps each side's own selection and
+              // scroll position, the same reasoning the old Overview page
+              // used for this exact tab pair.
+              child: IndexedStack(
+                index: _topTab,
+                children: [
+                  _buildSectionsTab(isWide),
+                  AdminFacultyScreen(client: widget.client, academicYear: _selectedYear),
+                ],
               ),
+            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildSectionsTab(bool isWide) {
+    return Stack(
+      children: [
+        _loading
+            ? const SkeletonList()
+            : _error != null
+            ? EmptyStateView(
+                icon: Icons.error_outline,
+                title: 'Could not load classes',
+                message: _error!,
+                actionLabel: 'Retry',
+                onAction: _load,
+              )
+            : _buildContent(isWide),
+        if (_selectedForExport.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _SelectionBar(
+              count: _selectedForExport.length,
+              exporting: _bulkExporting,
+              onExport: _exportSelected,
+              onClear: () => setState(_selectedForExport.clear),
+            ),
+          ),
+      ],
     );
   }
 
@@ -181,27 +424,41 @@ class _AdminClassManagementScreenState
         ),
         const SizedBox(height: 2),
         const Text(
-          'Browse and Manage the Sections for OJT.',
+          'Manage sections, instructors, and students.',
           style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
     );
-    final exportAll = _ExportMenuButton(
-      label: 'Export All Data',
-      icon: Icons.ios_share,
-      variant: _ExportButtonVariant.solidMaroon,
-      onSelected: (format) => _exportIds(_filtered.map((c) => c.id).toList(), format),
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AcademicYearPicker(
+          years: _years,
+          selected: _selectedYear,
+          onSelected: _selectYear,
+          onAddNew: _addAcademicYear,
+        ),
+        if (_topTab == 0) ...[
+          const SizedBox(width: 10),
+          _ExportMenuButton(
+            label: 'Export All Data',
+            icon: Icons.ios_share,
+            variant: _ExportButtonVariant.solidMaroon,
+            onSelected: (format) => _exportIds(_filtered.map((c) => c.id).toList(), format),
+          ),
+        ],
+      ],
     );
 
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [Expanded(child: titleBlock), exportAll],
+        children: [Expanded(child: titleBlock), controls],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [titleBlock, const SizedBox(height: 12), exportAll],
+      children: [titleBlock, const SizedBox(height: 12), controls],
     );
   }
 
@@ -250,19 +507,36 @@ class _AdminClassManagementScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            onChanged: (v) => setState(() => _query = v),
-            decoration: InputDecoration(
-              hintText: 'Search Class / Instructor...',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              filled: true,
-              fillColor: AppColors.background,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  onChanged: (v) => setState(() => _query = v),
+                  decoration: InputDecoration(
+                    hintText: 'Search Class / Instructor...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                onPressed: _openCreateSectionDialog,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Create'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryMaroon,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -271,7 +545,7 @@ class _AdminClassManagementScreenState
                     icon: Icons.class_outlined,
                     title: _classes.isEmpty ? 'No classes yet' : 'No matching classes',
                     message: _classes.isEmpty
-                        ? 'Sections created in Overview will show up here.'
+                        ? 'Tap "Create" to add the first section for A.Y. $_selectedYear.'
                         : 'Try a different search.',
                   )
                 : ListView.separated(
@@ -526,6 +800,78 @@ class _SelectionBar extends StatelessWidget {
               onSelected: onExport,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _TopTabs extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  const _TopTabs({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _TopTabButton(
+          icon: Icons.groups_outlined,
+          label: 'Sections (Students)',
+          selected: selected == 0,
+          onTap: () => onChanged(0),
+        ),
+        const SizedBox(width: 8),
+        _TopTabButton(
+          icon: Icons.badge_outlined,
+          label: 'Faculty (Instructors)',
+          selected: selected == 1,
+          onTap: () => onChanged(1),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopTabButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TopTabButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.primaryMaroon : AppColors.cardWhite,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: selected ? Colors.white : AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
