@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/admin_class.dart';
+import '../../models/admin_student_detail.dart';
 import '../../services/admin_classes_service.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_colors.dart';
@@ -15,6 +16,9 @@ const int _pageSize = 10;
 // Below this width the header/info row wraps to a stacked layout instead
 // of sitting side by side.
 const _wideBreakpoint = 640.0;
+// Below this width there's no room for the class detail and the Student
+// Details panel side by side -- View pushes a full-screen page instead.
+const _studentPanelWideBreakpoint = 900.0;
 
 enum _StudentTableMode { showSome, expanded }
 
@@ -53,6 +57,10 @@ class _AdminClassManagementDetailPanelState
   int _page = 0;
   AdminStudentStatus? _statusFilter;
   _StudentTableMode _mode = _StudentTableMode.showSome;
+  // Which student's row is open in the Student Details panel -- purely
+  // local UI state, so opening/closing it never touches _detail, _page,
+  // _query, or triggers a reload of the class itself.
+  int? _selectedStudentId;
 
   @override
   void initState() {
@@ -265,43 +273,25 @@ class _AdminClassManagementDetailPanelState
     );
   }
 
+  // View -> studentId -> fetch that exact student's record -> display.
+  // Wide enough to sit the Student Details panel next to the class detail
+  // (matching the reference design); otherwise it's pushed as its own
+  // page, same narrow-mode fallback used throughout Admin.
   void _viewStudent(AdminClassStudent student) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(student.name),
-        content: SizedBox(
-          width: 340,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailRow(label: 'Student Number', value: student.studentNumber ?? 'Not set'),
-              _DetailRow(label: 'Email', value: student.email),
-              _DetailRow(label: 'Status', value: _statusLabel(student.status)),
-              _DetailRow(
-                label: 'Assigned Company',
-                value: student.assignedCompany ?? 'N/A',
-              ),
-              _DetailRow(label: 'Contact Person', value: student.contactPerson ?? '--'),
-              _DetailRow(label: 'OJT Supervisor', value: student.ojtSupervisor ?? '--'),
-              _DetailRow(
-                label: 'Account',
-                value: student.accountStatus == AdminAccountStatus.activated
-                    ? 'Activated'
-                    : 'Pending activation',
-              ),
-            ],
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < _studentPanelWideBreakpoint) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _StudentDetailScreen(
+            classId: widget.classId,
+            studentId: student.id,
+            classesService: widget.classesService,
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+      );
+      return;
+    }
+    setState(() => _selectedStudentId = student.id);
   }
 
   List<AdminClassStudent> get _filtered {
@@ -329,13 +319,34 @@ class _AdminClassManagementDetailPanelState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final mainPanel = Container(
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
       child: _buildBody(),
+    );
+    if (_selectedStudentId == null) return mainPanel;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: mainPanel),
+        const SizedBox(width: 16),
+        SizedBox(
+          width: 340,
+          child: _StudentDetailPanel(
+            // A fresh State per student -- switching from one selected
+            // student to another must never show stale data from the
+            // previous one, even for a single frame.
+            key: ValueKey(_selectedStudentId),
+            classId: widget.classId,
+            studentId: _selectedStudentId!,
+            classesService: widget.classesService,
+            onClose: () => setState(() => _selectedStudentId = null),
+          ),
+        ),
+      ],
     );
   }
 
@@ -572,6 +583,331 @@ class _AdminClassManagementDetailPanelState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The narrow-mode fallback for View -- a full page instead of the side
+/// panel, same convention as everything else in Admin that can't fit a
+/// second pane. Wraps the same _StudentDetailPanel content so there's
+/// exactly one implementation of what a student's details look like.
+class _StudentDetailScreen extends StatelessWidget {
+  final int classId;
+  final int studentId;
+  final AdminClassesService classesService;
+
+  const _StudentDetailScreen({
+    required this.classId,
+    required this.studentId,
+    required this.classesService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryMaroon,
+        foregroundColor: Colors.white,
+        title: const Text('Student Details'),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: _StudentDetailPanel(
+            classId: classId,
+            studentId: studentId,
+            classesService: classesService,
+            onClose: () => Navigator.of(context).pop(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Student List -> click a row -> studentId -> fetch that exact record ->
+/// display -> replace on the next click. Keyed by studentId at the call
+/// site so switching students always starts this State fresh (loading,
+/// then that student's real data) instead of showing stale content from
+/// whoever was selected before.
+class _StudentDetailPanel extends StatefulWidget {
+  final int classId;
+  final int studentId;
+  final AdminClassesService classesService;
+  final VoidCallback onClose;
+
+  const _StudentDetailPanel({
+    super.key,
+    required this.classId,
+    required this.studentId,
+    required this.classesService,
+    required this.onClose,
+  });
+
+  @override
+  State<_StudentDetailPanel> createState() => _StudentDetailPanelState();
+}
+
+class _StudentDetailPanelState extends State<_StudentDetailPanel> {
+  AdminStudentDetail? _detail;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final detail = await widget.classesService.getStudentDetail(
+        classId: widget.classId,
+        studentId: widget.studentId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _detail = detail;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  String _formatHours(double hours) =>
+      hours == hours.roundToDouble() ? hours.toInt().toString() : hours.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.background, width: 2)),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Student Details',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Padding(padding: EdgeInsets.all(16), child: SkeletonList());
+    }
+    if (_error != null || _detail == null) {
+      return Center(
+        child: EmptyStateView(
+          icon: Icons.error_outline,
+          title: 'Could not load this student',
+          message: _error ?? 'Unknown error.',
+          actionLabel: 'Retry',
+          onAction: _load,
+        ),
+      );
+    }
+
+    final s = _detail!;
+    final activated = s.accountStatus == AdminAccountStatus.activated;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: AppColors.background,
+                backgroundImage: s.avatarUrl != null
+                    ? NetworkImage(ApiClient.resolveUrl(s.avatarUrl!))
+                    : null,
+                child: s.avatarUrl == null
+                    ? const Icon(Icons.person_outline, size: 26, color: AppColors.primaryMaroon)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s.name,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    if (s.studentNumber != null)
+                      Text(
+                        s.studentNumber!,
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                      ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _Pill(
+                          label: activated ? 'ACTIVATED' : 'PENDING',
+                          bg: activated ? AppColors.successGreenBg : AppColors.statOrangeBg,
+                          fg: activated ? AppColors.successGreenText : AppColors.statOrangeIcon,
+                        ),
+                        _StudentStatusChip(status: s.ojtStatus),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const _SectionHeading(title: 'Personal Information', icon: Icons.person_outline),
+          _DetailRow(label: 'Program', value: s.program ?? 'Not provided'),
+          _DetailRow(label: 'Section', value: s.section ?? 'Not provided'),
+          _DetailRow(label: 'Contact Number', value: s.phone ?? 'Not provided'),
+          _DetailRow(label: 'Email', value: s.email),
+          _DetailRow(label: 'Guardian Contact', value: s.guardianContact ?? 'Not provided'),
+          _DetailRow(label: 'Address', value: s.address ?? 'Not provided'),
+          const SizedBox(height: 16),
+          const _SectionHeading(title: 'Company Information', icon: Icons.apartment_outlined),
+          if (s.company == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                'Not yet deployed.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
+            )
+          else ...[
+            _DetailRow(label: 'Company Name', value: s.company!.name),
+            _DetailRow(label: 'Industry', value: s.company!.industry ?? 'Not provided'),
+            _DetailRow(label: 'Company Address', value: s.company!.address ?? 'Not provided'),
+            _DetailRow(
+              label: 'Date Deployed',
+              value: s.company!.dateDeployed != null
+                  ? DateFormat('MMM d, yyyy').format(s.company!.dateDeployed!)
+                  : 'Not deployed',
+            ),
+            _DetailRow(label: 'Supervisor', value: s.company!.supervisorName ?? 'No supervisor assigned'),
+            _DetailRow(
+              label: 'Supervisor Contact',
+              value: s.company!.supervisorContact ?? 'Not provided',
+            ),
+          ],
+          const SizedBox(height: 16),
+          const _SectionHeading(title: 'OJT Progress', icon: Icons.timeline_outlined),
+          _DetailRow(label: 'Hours Completed', value: '${_formatHours(s.progress.completedHours)} hrs'),
+          _DetailRow(label: 'Required Hours', value: '${_formatHours(s.progress.requiredHours)} hrs'),
+          _DetailRow(
+            label: 'Days Attended',
+            value: s.progress.daysAttended > 0 ? '${s.progress.daysAttended} days' : 'No attendance recorded',
+          ),
+          _DetailRow(
+            label: 'Estimated Completion',
+            value: s.progress.estimatedCompletion != null
+                ? DateFormat('MMM d, yyyy').format(s.progress.estimatedCompletion!)
+                : 'Not enough data yet',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 40,
+                child: Text(
+                  '${s.progress.completionPercent.toStringAsFixed(0)}%',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primaryMaroon),
+                ),
+              ),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: s.progress.completionPercent / 100,
+                    minHeight: 8,
+                    backgroundColor: AppColors.background,
+                    valueColor: const AlwaysStoppedAnimation(AppColors.primaryMaroon),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _SectionHeading({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: AppColors.primaryMaroon),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primaryMaroon),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color bg;
+  final Color fg;
+
+  const _Pill({required this.label, required this.bg, required this.fg});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
     );
   }
 }

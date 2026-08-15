@@ -1,4 +1,5 @@
 import '../models/admin_class.dart';
+import '../models/admin_student_detail.dart';
 import 'api_client.dart';
 
 abstract class AdminClassesService {
@@ -13,6 +14,11 @@ abstract class AdminClassesService {
   });
 
   Future<AdminClassDetail> getClassDetail(int classId);
+
+  /// The Student Details panel's data -- scoped to the section the
+  /// student is being viewed from, matching the real
+  /// Class -> Student relationship.
+  Future<AdminStudentDetail> getStudentDetail({required int classId, required int studentId});
 
   Future<String> regenerateActivationCode(int classId);
 
@@ -78,6 +84,15 @@ class HttpAdminClassesService implements AdminClassesService {
   Future<AdminClassDetail> getClassDetail(int classId) async {
     final response = await client.get('/api/admin/classes/$classId');
     return AdminClassDetail.fromJson(response['class'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AdminStudentDetail> getStudentDetail({
+    required int classId,
+    required int studentId,
+  }) async {
+    final response = await client.get('/api/admin/classes/$classId/students/$studentId');
+    return AdminStudentDetail.fromJson(response['student'] as Map<String, dynamic>);
   }
 
   @override

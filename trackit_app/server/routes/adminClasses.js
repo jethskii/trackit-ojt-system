@@ -423,6 +423,102 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// The Student Details panel's real data source -- reuses loadClassStudents
+// (the exact same rows the student table itself renders, so the panel can
+// never show a different status/company/contact than the row the admin
+// clicked) and adds only what that shared helper doesn't already carry:
+// contact info, company specifics, and hours/attendance for the progress
+// section. Nested under the class so a student can only be looked up
+// within a section the admin is actually viewing.
+router.get('/:id/students/:studentId', async (req, res) => {
+  try {
+    const classId = Number(req.params.id);
+    const studentId = Number(req.params.studentId);
+
+    const classStudents = await loadClassStudents(classId);
+    const base = classStudents.find((s) => s.id === studentId);
+    if (!base) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Student not found in this section.' });
+    }
+
+    const detailResult = await pool.query(
+      `SELECT s.email, s.student_number, s.required_hours,
+              sp.phone, sp.address, sp.company_address, sp.company_industry,
+              sp.company_contact_number, sp.ojt_start_date,
+              c.program, c.section
+       FROM students s
+       JOIN student_profiles sp ON sp.student_id = s.id
+       JOIN instructor_classes c ON c.id = sp.class_id
+       WHERE s.id = $1 AND sp.class_id = $2`,
+      [studentId, classId],
+    );
+    if (detailResult.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Student not found in this section.' });
+    }
+    const detail = detailResult.rows[0];
+
+    const [hoursResult, weeklyResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE clock_out IS NOT NULL) AS days_attended,
+           COALESCE(SUM(EXTRACT(EPOCH FROM (clock_out - clock_in)) / 3600.0)
+             FILTER (WHERE clock_out IS NOT NULL), 0) AS completed_hours
+         FROM attendance_records WHERE student_id = $1`,
+        [studentId],
+      ),
+      pool.query(
+        `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (clock_out - clock_in)) / 3600.0), 0) AS weekly_hours
+         FROM attendance_records
+         WHERE student_id = $1 AND clock_out IS NOT NULL
+           AND work_date >= (CURRENT_DATE - INTERVAL '7 days')`,
+        [studentId],
+      ),
+    ]);
+
+    res.json({
+      success: true,
+      student: {
+        id: base.id,
+        name: base.name,
+        avatarUrl: base.avatarUrl,
+        studentNumber: detail.student_number,
+        accountStatus: base.accountStatus,
+        dateActivated: base.dateActivated,
+        ojtStatus: base.status,
+        program: detail.program,
+        section: detail.section,
+        phone: detail.phone,
+        email: detail.email,
+        address: detail.address,
+        guardianContact: base.contactPerson,
+        company: base.assignedCompany
+          ? {
+              name: base.assignedCompany,
+              industry: detail.company_industry,
+              address: detail.company_address,
+              dateDeployed: detail.ojt_start_date,
+              supervisorName: base.ojtSupervisor,
+              supervisorContact: detail.company_contact_number,
+            }
+          : null,
+        progress: {
+          completedHours: Number(hoursResult.rows[0].completed_hours),
+          requiredHours: Number(detail.required_hours),
+          daysAttended: Number(hoursResult.rows[0].days_attended),
+          weeklyAverageHours: Number(weeklyResult.rows[0].weekly_hours),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get admin student detail error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load student.' });
+  }
+});
+
 // Admin generates/regenerates the code -- per the spec, this replaces
 // the instructor's own class-creation code generation as the real
 // source of activation codes going forward.
