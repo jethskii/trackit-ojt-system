@@ -16,9 +16,18 @@ const int _pageSize = 10;
 // Below this width the header/info row wraps to a stacked layout instead
 // of sitting side by side.
 const _wideBreakpoint = 640.0;
-// Below this width there's no room for the class detail and the Student
-// Details panel side by side -- View pushes a full-screen page instead.
-const _studentPanelWideBreakpoint = 900.0;
+// The Student Details panel needs 340px plus a 16px gap; below that plus
+// a reasonable minimum for the class detail panel itself, there's no room
+// to sit them side by side -- View pushes a full-screen page instead.
+// This is checked against this widget's OWN available width (measured via
+// LayoutBuilder in build()), not the browser window -- the window can be
+// "wide" while this panel's actual slot is much narrower, once the
+// sidebar (250px) and the class list column (320px + 16px gap) have
+// already taken their share of it. Using the window width here previously
+// let the class detail panel collapse to a sliver a few pixels wide (its
+// 18px padding alone exceeded the space left), rendering as blank white.
+const _minMainPanelWidth = 380.0;
+const _studentPanelWideBreakpoint = 340.0 + 16.0 + _minMainPanelWidth;
 
 enum _StudentTableMode { showSome, expanded }
 
@@ -61,6 +70,10 @@ class _AdminClassManagementDetailPanelState
   // local UI state, so opening/closing it never touches _detail, _page,
   // _query, or triggers a reload of the class itself.
   int? _selectedStudentId;
+  // Cached from the LayoutBuilder in build() so _viewStudent (called from
+  // a tap handler, outside the build phase) can make the same wide/narrow
+  // decision the panel itself is actually laid out with.
+  double _availableWidth = 0;
 
   @override
   void initState() {
@@ -278,8 +291,7 @@ class _AdminClassManagementDetailPanelState
   // (matching the reference design); otherwise it's pushed as its own
   // page, same narrow-mode fallback used throughout Admin.
   void _viewStudent(AdminClassStudent student) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width < _studentPanelWideBreakpoint) {
+    if (_availableWidth < _studentPanelWideBreakpoint) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => _StudentDetailScreen(
@@ -319,34 +331,45 @@ class _AdminClassManagementDetailPanelState
 
   @override
   Widget build(BuildContext context) {
-    final mainPanel = Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: _buildBody(),
-    );
-    if (_selectedStudentId == null) return mainPanel;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: mainPanel),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 340,
-          child: _StudentDetailPanel(
-            // A fresh State per student -- switching from one selected
-            // student to another must never show stale data from the
-            // previous one, even for a single frame.
-            key: ValueKey(_selectedStudentId),
-            classId: widget.classId,
-            studentId: _selectedStudentId!,
-            classesService: widget.classesService,
-            onClose: () => setState(() => _selectedStudentId = null),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Cache for _viewStudent's tap handler, and re-check on every
+        // rebuild (not just at the moment "View" was tapped) -- if the
+        // window is resized narrower after opening the panel, this keeps
+        // the class detail content fully visible instead of collapsing it.
+        _availableWidth = constraints.maxWidth;
+        final mainPanel = Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardWhite,
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-      ],
+          clipBehavior: Clip.antiAlias,
+          child: _buildBody(),
+        );
+        final showSidePanel =
+            _selectedStudentId != null && constraints.maxWidth >= _studentPanelWideBreakpoint;
+        if (!showSidePanel) return mainPanel;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: mainPanel),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 340,
+              child: _StudentDetailPanel(
+                // A fresh State per student -- switching from one selected
+                // student to another must never show stale data from the
+                // previous one, even for a single frame.
+                key: ValueKey(_selectedStudentId),
+                classId: widget.classId,
+                studentId: _selectedStudentId!,
+                classesService: widget.classesService,
+                onClose: () => setState(() => _selectedStudentId = null),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

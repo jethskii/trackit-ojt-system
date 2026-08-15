@@ -405,11 +405,14 @@ class _AdminHteDirectoryScreenState extends State<AdminHteDirectoryScreen> {
     );
   }
 
+  // Company Name (220) + Industry (180) + Location (140) + info icon (36).
+  static const double _tableWidth = 220 + 180 + 140 + 36;
+
   Widget _buildTable(List<HteCompany> companies, {required bool narrow}) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SizedBox(
-        width: 560,
+        width: _tableWidth,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

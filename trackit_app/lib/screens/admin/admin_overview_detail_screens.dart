@@ -24,7 +24,19 @@ class _DrillDownScaffold extends StatelessWidget {
         foregroundColor: Colors.white,
         title: Text(title),
       ),
-      body: SafeArea(child: child),
+      // These drill-downs are single-column lists by design (matching the
+      // mobile layout, which already works well) -- on a wide desktop
+      // screen that means centering with a sensible max width instead of
+      // stretching rows edge-to-edge, consistent with every other Admin
+      // list+detail screen capping its content rather than sprawling.
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }

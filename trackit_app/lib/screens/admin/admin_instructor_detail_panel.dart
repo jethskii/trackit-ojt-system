@@ -550,8 +550,27 @@ class _AdminInstructorDetailPanelState extends State<AdminInstructorDetailPanel>
             ),
           ],
         );
-        final actions = Row(
-          mainAxisSize: MainAxisSize.min,
+        // Wrap, not Row: at the narrow end of the "wide" range (right
+        // around _cardsWideBreakpoint) these 3 buttons' combined natural
+        // width doesn't fit next to profileBlock -- a plain Row would force
+        // a horizontal overflow there. Wrap lets them flow onto a second
+        // line instead. This whole panel lives inside a vertically
+        // scrolling SingleChildScrollView (see _buildBody), so this Wrap is
+        // deliberately used bare here (not Flexible/Expanded) -- Column
+        // already hands its non-flex children a bounded cross-axis
+        // (horizontal) width even while its own main axis (vertical) is
+        // unbounded, so Wrap can size correctly without it. It only needs
+        // Flexible wrapping it where it's used as a Row child below, since
+        // Row hands non-flex children an unbounded main axis (horizontal)
+        // -- and wrapping it in Flexible here too, where the Flex axis is
+        // vertical, would try to bound the wrong axis and risk exactly the
+        // "Flexible inside an unbounded-height Flex" crash this fix exists
+        // to avoid elsewhere.
+        final actionsWrap = Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             OutlinedButton.icon(
               onPressed: _openEditDialog,
@@ -562,7 +581,6 @@ class _AdminInstructorDetailPanelState extends State<AdminInstructorDetailPanel>
                 side: const BorderSide(color: AppColors.primaryMaroon),
               ),
             ),
-            const SizedBox(width: 10),
             OutlinedButton.icon(
               onPressed: (_busyStatus || !detail.isActive) ? null : () => _toggleStatus(false),
               icon: const Icon(Icons.block, size: 16),
@@ -572,7 +590,6 @@ class _AdminInstructorDetailPanelState extends State<AdminInstructorDetailPanel>
                 side: const BorderSide(color: AppColors.statRedIcon),
               ),
             ),
-            const SizedBox(width: 10),
             OutlinedButton.icon(
               onPressed: (_busyStatus || detail.isActive) ? null : () => _toggleStatus(true),
               icon: const Icon(Icons.replay, size: 16),
@@ -590,13 +607,17 @@ class _AdminInstructorDetailPanelState extends State<AdminInstructorDetailPanel>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: profileBlock),
-              actions,
+              // Flexible here (Row's main axis is horizontal) is what
+              // gives actionsWrap an actual bounded width to wrap
+              // within -- a bare Wrap as a non-flex Row child would be
+              // handed an unbounded main-axis constraint and never wrap.
+              Flexible(child: actionsWrap),
             ],
           );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [profileBlock, const SizedBox(height: 12), actions],
+          children: [profileBlock, const SizedBox(height: 12), actionsWrap],
         );
       },
     );
