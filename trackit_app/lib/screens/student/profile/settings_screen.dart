@@ -116,25 +116,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _Group(
                     children: [
                       SettingsTile(
-                        icon: Icons.verified_user_outlined,
-                        title: 'Two-Factor Authentication',
-                        subtitle: 'Future-ready -- not yet available',
-                        onTap: () => _stub('Two-Factor Authentication'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.devices_outlined,
-                        title: 'Active Sessions',
-                        onTap: () => _stub('Active Sessions'),
-                      ),
-                      SettingsTile(
                         icon: Icons.history,
                         title: 'Login History',
                         onTap: widget.onOpenLoginHistory ?? () => _stub('Login History'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.logout,
-                        title: 'Logout Other Devices',
-                        onTap: () => _stub('Logout Other Devices'),
                       ),
                     ],
                   ),
@@ -200,42 +184,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-                  const SettingsSectionHeader(title: 'Appearance'),
-                  _Group(
-                    children: [
-                      SettingsTile(
-                        icon: Icons.light_mode_outlined,
-                        title: 'Light Mode',
-                        subtitle: 'Currently active',
-                        trailing: const Icon(
-                          Icons.check_circle,
-                          color: AppColors.successGreenText,
-                          size: 20,
-                        ),
-                      ),
-                      SettingsTile(
-                        icon: Icons.dark_mode_outlined,
-                        title: 'Dark Mode',
-                        subtitle: 'Future-ready -- not yet available',
-                        trailing: Switch(
-                          value: false,
-                          onChanged: null,
-                        ),
-                      ),
-                      SettingsTile(
-                        icon: Icons.format_size,
-                        title: 'Font Size',
-                        subtitle: 'Medium',
-                        onTap: () => _stub('Font Size selection'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.language_outlined,
-                        title: 'Language',
-                        subtitle: 'English',
-                        onTap: () => _stub('Language selection'),
-                      ),
-                    ],
-                  ),
                   const SettingsSectionHeader(title: 'Privacy'),
                   _Group(
                     children: [
@@ -247,21 +195,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           activeThumbColor: AppColors.primaryMaroon,
                           onChanged: (v) => setState(() => _profilePublic = v),
                         ),
-                      ),
-                      SettingsTile(
-                        icon: Icons.fact_check_outlined,
-                        title: 'Data Privacy Consent',
-                        onTap: () => _stub('Data Privacy Consent'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.download_outlined,
-                        title: 'Download My Data',
-                        onTap: () => _stub('Download My Data'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.timeline_outlined,
-                        title: 'Account Activity',
-                        onTap: () => _stub('Account Activity'),
                       ),
                     ],
                   ),
@@ -275,21 +208,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           '0.1.0',
                           style: TextStyle(color: AppColors.textSecondary),
                         ),
-                      ),
-                      SettingsTile(
-                        icon: Icons.system_update_outlined,
-                        title: 'Check for Updates',
-                        onTap: () => _stub('Check for Updates'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.cleaning_services_outlined,
-                        title: 'Clear Cache',
-                        onTap: () => _stub('Clear Cache'),
-                      ),
-                      SettingsTile(
-                        icon: Icons.storage_outlined,
-                        title: 'Storage Usage',
-                        onTap: () => _stub('Storage Usage'),
                       ),
                     ],
                   ),
