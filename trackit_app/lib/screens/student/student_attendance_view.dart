@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../models/ojt_progress.dart';
 import '../../services/api_client.dart';
 import '../../services/attendance_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/location_helper.dart';
+import '../../utils/ph_time.dart';
 import '../../widgets/common/app_header.dart';
 import '../../widgets/student/attendance_history_section.dart';
 import '../../widgets/student/attendance_quick_actions.dart';
@@ -175,9 +175,10 @@ class _StudentAttendanceViewState extends State<StudentAttendanceView> {
             );
       final progress = await widget.service.getProgress();
       if (!mounted) return;
-      final timeLabel = DateFormat(
+      final timeLabel = formatPh(
+        updated.clockOut ?? updated.clockIn ?? DateTime.now(),
         'hh:mm a',
-      ).format(updated.clockOut ?? updated.clockIn ?? DateTime.now());
+      );
       setState(() {
         _attendance = updated;
         _progress = progress;

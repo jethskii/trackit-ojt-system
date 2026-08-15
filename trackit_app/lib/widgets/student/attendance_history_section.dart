@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 import '../common/empty_state_view.dart';
 
 class AttendanceHistorySection extends StatelessWidget {
@@ -84,7 +84,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('MMM d, yyyy').format(entry.date);
+    final dateLabel = formatPh(entry.date, 'MMM d, yyyy');
     final hoursLabel = entry.totalHours == entry.totalHours.roundToDouble()
         ? entry.totalHours.toInt().toString()
         : entry.totalHours.toStringAsFixed(1);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/attendance_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 import '../../widgets/common/back_nav_header.dart';
 import '../../widgets/common/mock_file_picker_sheet.dart';
 
@@ -24,7 +25,10 @@ class _AttendanceCorrectionFormScreenState
     extends State<AttendanceCorrectionFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _reasonController;
-  DateTime _workDate = DateTime.now();
+  // "Today" here must be Philippine time, not the device's own -- a
+  // correction request is about a specific PHT calendar day, and the
+  // date picker's bounds below need to agree with that.
+  DateTime _workDate = nowInPh();
   String? _attachmentFileName;
   bool _saving = false;
 
@@ -44,8 +48,8 @@ class _AttendanceCorrectionFormScreenState
     final picked = await showDatePicker(
       context: context,
       initialDate: _workDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 90)),
-      lastDate: DateTime.now(),
+      firstDate: nowInPh().subtract(const Duration(days: 90)),
+      lastDate: nowInPh(),
     );
     if (picked != null) setState(() => _workDate = picked);
   }

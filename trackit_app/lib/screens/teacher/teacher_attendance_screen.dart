@@ -1,10 +1,10 @@
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../models/teacher_attendance_record.dart';
 import '../../models/teacher_correction_request.dart';
 import '../../services/api_client.dart';
 import '../../services/teacher_attendance_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 import '../../widgets/common/back_nav_header.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
@@ -88,7 +88,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${request.studentName} -- ${DateFormat('MMM d, yyyy').format(request.workDate)}'),
+            Text('${request.studentName} -- ${formatPh(request.workDate, 'MMM d, yyyy')}'),
             const SizedBox(height: 8),
             Text(request.reason, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             const SizedBox(height: 12),
@@ -256,7 +256,7 @@ class _RecordTile extends StatelessWidget {
 
   const _RecordTile({required this.record});
 
-  String _formatTime(DateTime? time) => time == null ? '--:--' : DateFormat('h:mm a').format(time);
+  String _formatTime(DateTime? time) => time == null ? '--:--' : formatPh(time, 'h:mm a');
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +286,7 @@ class _RecordTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  DateFormat('EEE, MMM d, yyyy').format(record.workDate),
+                  formatPh(record.workDate, 'EEE, MMM d, yyyy'),
                   style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                 ),
               ],
@@ -340,7 +340,7 @@ class _CorrectionTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            DateFormat('EEE, MMM d, yyyy').format(request.workDate),
+            formatPh(request.workDate, 'EEE, MMM d, yyyy'),
             style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),

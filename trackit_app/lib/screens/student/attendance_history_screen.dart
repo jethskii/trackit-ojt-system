@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../models/attendance_correction_request.dart';
 import '../../services/attendance_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 import '../../widgets/common/back_nav_header.dart';
 import '../../widgets/common/empty_state_view.dart';
 import '../../widgets/common/skeleton_list_tile.dart';
@@ -126,12 +126,12 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('MMM d, yyyy').format(entry.date);
+    final dateLabel = formatPh(entry.date, 'MMM d, yyyy');
     final clockInLabel = entry.clockIn != null
-        ? DateFormat('hh:mm a').format(entry.clockIn!)
+        ? formatPh(entry.clockIn!, 'hh:mm a')
         : '--:--';
     final clockOutLabel = entry.clockOut != null
-        ? DateFormat('hh:mm a').format(entry.clockOut!)
+        ? formatPh(entry.clockOut!, 'hh:mm a')
         : '--:--';
     final hoursLabel = entry.totalHours == entry.totalHours.roundToDouble()
         ? entry.totalHours.toInt().toString()
@@ -210,7 +210,7 @@ class _CorrectionRequestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('MMM d, yyyy').format(request.workDate);
+    final dateLabel = formatPh(request.workDate, 'MMM d, yyyy');
 
     return Container(
       width: double.infinity,

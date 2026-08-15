@@ -1,6 +1,7 @@
 import '../models/attendance.dart';
 import '../models/attendance_correction_request.dart';
 import '../models/ojt_progress.dart';
+import '../utils/ph_time.dart';
 import 'api_client.dart';
 
 abstract class AttendanceService {
@@ -34,8 +35,11 @@ class HttpAttendanceService implements AttendanceService {
 
   HttpAttendanceService(this.client);
 
+  // Only used when there's no attendance record yet (nothing to read a
+  // date from) -- must be "today" per Philippine Standard Time, not the
+  // device's own timezone.
   DateTime _today() {
-    final now = DateTime.now();
+    final now = nowInPh();
     return DateTime(now.year, now.month, now.day);
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 
 class TodayAttendanceCard extends StatelessWidget {
   final TodayAttendance attendance;
@@ -10,12 +10,12 @@ class TodayAttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('MMMM d, yyyy').format(attendance.date);
+    final dateLabel = formatPh(attendance.date, 'MMMM d, yyyy');
     final clockInLabel = attendance.hasClockedIn
-        ? DateFormat('hh:mm a').format(attendance.clockIn!)
+        ? formatPh(attendance.clockIn!, 'hh:mm a')
         : '--:--';
     final clockOutLabel = attendance.hasClockedOut
-        ? DateFormat('hh:mm a').format(attendance.clockOut!)
+        ? formatPh(attendance.clockOut!, 'hh:mm a')
         : '--:--';
     final totalHoursLabel = '${_formatHours(attendance.totalHours)} Hrs';
     final overallStatus = !attendance.hasClockedIn

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/ph_time.dart';
 
 class AttendanceQuickActions extends StatelessWidget {
   final TodayAttendance attendance;
@@ -19,7 +19,7 @@ class AttendanceQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeLabel = DateFormat('hh:mm a').format(currentTime);
+    final timeLabel = formatPh(currentTime, 'hh:mm a');
     // Clocked out and out of attempts to start a new cycle -- truly
     // nothing left to do until tomorrow, distinct from "clocked out but
     // could clock in again" or "mid-session, clock out any time."

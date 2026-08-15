@@ -3,6 +3,7 @@ const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { computeProgressStatus } = require('../utils/progressStatus');
 const { notifyInstructorForStudent } = require('../utils/notifyInstructor');
+const { todayInManila } = require('../utils/manilaTime');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -16,8 +17,12 @@ const EARTH_RADIUS_METERS = 6371000;
 // switching devices.
 const MAX_DAILY_ATTEMPTS = 2;
 
+// The calendar day a clock-in/out is filed under must be Philippine
+// Standard Time's "today", not the server process's own -- a student
+// clocking in at, say, 11:30pm PHT is well past midnight UTC, and
+// new Date().toISOString() would (wrongly) file that under the next day.
 function todayDateString() {
-  return new Date().toISOString().slice(0, 10);
+  return todayInManila();
 }
 
 function toRadians(degrees) {
